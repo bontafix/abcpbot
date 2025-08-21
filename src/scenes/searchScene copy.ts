@@ -3,21 +3,21 @@ import * as dotenv from 'dotenv';
 import { UserRepository } from '../repositories/userRepository';
 import { searchBrands, searchArticles } from '../abcp';
 
+
 const ABCP_HOST = process.env.ABCP_HOST;
 const ABCP_USER = process.env.ABCP_USER;
 const ABCP_PASS = process.env.ABCP_PASS;
-
 // Интерфейс состояния мастера
 interface SearchWizardState {
   number?: string;
   results?: SearchResultMap;
   selectedBrandNumber?: string;
-  analogArticles?: any[]; // Добавляем хранение аналогов
 }
+
 
 // Интерфейс WizardSession
 interface MyWizardSession extends Scenes.WizardSessionData {
-  state: SearchWizardState;
+  state: SearchWizardState; // Указываем структуру состояния
 }
 
 // Расширяем контекст
@@ -26,10 +26,12 @@ interface MyContext extends Scenes.WizardContext<MyWizardSession> { }
 // Создаём шаги мастера
 const step1 = async (ctx: MyContext) => {
   await ctx.reply('Введите код запчасти:');
-  return ctx.wizard.next();
+  return ctx.wizard.next(); // Переход к следующему шагу
+  // return ctx.scene.leave();
 };
 
 const step2 = async (ctx: MyContext) => {
+  // Middleware для обработки команд
   if (ctx.message && 'text' in ctx.message && ctx.message.text.startsWith('/')) {
     switch (ctx.message.text) {
       case '/start':
@@ -55,12 +57,14 @@ const step2 = async (ctx: MyContext) => {
       const entries_ = Object.entries(state.results || {}) as [string, SearchResultItem][];
       console.log(entries_);
       const entries = entries_;
+      //TODO: фильтровать по description !== ''
       
       if (entries.length > 0) {
         const buttons = entries.map(([key, item]) => [
           { text: `${item.brand} - ${item.description}`, callback_data: key }
         ]);
 
+        // Добавляем кнопку "Другой запрос" в конец
         buttons.push([
           { text: "🔍 Другой запрос", callback_data: "restart_search" }
         ]);
@@ -72,7 +76,8 @@ const step2 = async (ctx: MyContext) => {
         });
       } else {
         await ctx.reply('Ничего не найдено.');
-        return ctx.scene.reenter();
+        return ctx.scene.reenter();  // Возврат на предыдущий шаг
+        // await ctx.scene.reenter(); // вернуться к step1
       }
     } else {
       await ctx.reply('Ошибка доступа к Abcp API. Попробуйте позже.');
@@ -97,16 +102,8 @@ const step3 = async (ctx: MyContext) => {
         delete s.number;
         delete s.results;
         delete s.selectedBrandNumber;
-        delete s.analogArticles;
       }
-      await ctx.scene.reenter();
-      return;
-    }
-
-    // Обработка кнопки «Показать аналоги»
-    if (data === 'show_analogs') {
-      await ctx.answerCbQuery();
-      await showAnalogArticles(ctx);
+      await ctx.scene.reenter(); // вернуться к step1
       return;
     }
 
@@ -125,6 +122,7 @@ const step3 = async (ctx: MyContext) => {
 
     if (!selectedItem?.number || !selectedItem?.brand || !ABCP_HOST || !ABCP_USER || !ABCP_PASS) {
       await ctx.answerCbQuery('Нет данных для запроса', { show_alert: true });
+      // Предложить начать новый поиск
       await ctx.reply('Сделать новый поиск?', {
         reply_markup: { inline_keyboard: [[{ text: 'Новый поиск', callback_data: 'restart_search' }]] }
       });
@@ -145,23 +143,20 @@ const step3 = async (ctx: MyContext) => {
       await ctx.answerCbQuery();
       return;
     }
-
+    // `*Артикул*: ${String(a.number)} ${a.isAnalog ? " (🔸Оригинальная замена. )" : ""}\n` +
+    console.log(articles);
     articles.sort((a, b) => Number(Boolean(a.isAnalog)) - Number(Boolean(b.isAnalog)));
     const analogArticles = articles.filter(a => a.isAnalog);
     const nonAnalogArticles = articles.filter(a => !a.isAnalog);
 
-    // Сохраняем аналоги в состоянии для последующего использования
-    state.analogArticles = analogArticles;
-
-    // Показываем неаналогичные товары
     for (const a of nonAnalogArticles) {
       const md = `*Брэнд*: ${String(a.brand)}\n` +
-        `*Артикул*: ${String(a.number)}\n` +
+        `*Артикул*: ${String(a.number)}` +
         `*Описание*: ${String(a.description ?? '-')}\n` +
         `*Доступно*: ${String(a.availability ?? '-')}\n` +
         `*Срок*: ${String(a.deliveryProbability === 0 ? 'На складе' : a.descriptionOfDeliveryProbability)}\n` +
-        `*Цена*: ${formatPrice(a.price)}\n` +
-        `*Вес*: ${formatPrice(a.weight)}`;
+        `*Цена*: ${formatPrice(a.price)}\n `;
+        `*Вес*: ${formatPrice(a.weight)}\n `;
 
       await ctx.reply(md, {
         parse_mode: 'Markdown',
@@ -174,60 +169,23 @@ const step3 = async (ctx: MyContext) => {
       });
     }
 
-    // Показываем кнопку для аналогов, если они есть
     if (analogArticles.length > 0) {
-      await ctx.reply(`Найдено оригинальных замен: ${analogArticles.length}`, {
+      await ctx.reply(`Оригинальная замена - количество записей: ${analogArticles.length}`, {
         parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [[
-            { text: '📋 Показать аналоги', callback_data: 'show_analogs' },
             { text: 'Новый поиск', callback_data: 'restart_search' }
           ]]
         }
       });
     }
 
+    // Убираем отдельное сообщение с предложением нового поиска, так как кнопка есть на каждой карточке
     await ctx.answerCbQuery();
-    return;
+    return; // остаёмся на step3, ждём нажатия «Новый поиск» или «Заказать»
   }
-  return;
+  return; // ждём действия пользователя
 };
-
-// Функция для показа аналогов
-async function showAnalogArticles(ctx: MyContext) {
-  const state = ctx.wizard.state as SearchWizardState;
-  const analogArticles = state.analogArticles || [];
-
-  if (analogArticles.length === 0) {
-    await ctx.reply('Аналоги не найдены.');
-    return;
-  }
-
-  await ctx.reply(`🔸 *Оригинальные замены (${analogArticles.length}):*`, {
-    parse_mode: 'Markdown'
-  });
-
-  // Показываем аналогичные товары
-  for (const a of analogArticles) {
-    const md = `*Брэнд*: ${String(a.brand)}\n` +
-      `*Артикул*: ${String(a.number)}\n` +
-      `*Описание*: ${String(a.description ?? '-')}\n` +
-      `*Доступно*: ${String(a.availability ?? '-')}\n` +
-      `*Срок*: ${String(a.deliveryProbability === 0 ? 'На складе' : a.descriptionOfDeliveryProbability)}\n` +
-      `*Цена*: ${formatPrice(a.price)}\n` +
-      `*Вес*: ${formatPrice(a.weight)}`;
-
-    await ctx.reply(md, {
-      parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [[
-          { text: 'Заказать', callback_data: `order:${a.brand}:${a.number}:${a.availability ?? ''}` },
-          { text: 'Новый поиск', callback_data: 'restart_search' }
-        ]]
-      }
-    });
-  }
-}
 
 // Интерфейс для результата поиска
 interface SearchResultItem {
@@ -250,7 +208,7 @@ const searchWizard = new Scenes.WizardScene<MyContext>(
   step3
 );
 
-// Утилита форматирования цены
+// Утилита форматирования цены: пробелы для тысяч и 2 знака после точки
 function formatPrice(value: unknown): string {
   const num = Number(value);
   if (!Number.isFinite(num)) return '-';
@@ -261,4 +219,4 @@ function formatPrice(value: unknown): string {
   return `${sign}${intWithSpaces}.${fracPart}`;
 }
 
-export default searchWizard;
+export default searchWizard;  
