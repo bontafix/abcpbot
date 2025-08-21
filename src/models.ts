@@ -24,3 +24,12 @@ export const service = pgTable('service', {
     .notNull()
     .default(sql`now()`), // Устанавливает текущее время при создании записи
 });
+
+export const client = pgTable('client', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 255 }).notNull(),
+  phoneNumber: varchar('phone_number', { length: 20 }).notNull(),
+  createdAt: timestamp('created_at')
+    .notNull()
+    .default(sql`now()`), // Устанавливает текущее время при создании записи
+});

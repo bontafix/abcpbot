@@ -7,6 +7,8 @@ import { getMainMenuGuest, getMainMenuUser, getProfileMenu } from './menu';
 import { UserRepository } from './repositories/userRepository';
 import searchWizard from './scenes/searchScene';
 import orderScene from './scenes/orderScene';
+import registrationScene from './scenes/registrationScene';
+
 
 import { keyboard } from 'telegraf/typings/markup';
 import * as dotenv from 'dotenv';
@@ -32,7 +34,7 @@ interface MyWizardSession extends Scenes.WizardSessionData {
 interface MyContext extends Scenes.WizardContext<MyWizardSession> { }
 
 // Создаём Stage
-const stage = new Scenes.Stage<MyContext>([searchWizard as any, orderScene as any]);
+const stage = new Scenes.Stage<MyContext>([searchWizard as any, orderScene as any, registrationScene as any]);
  
 // Создаём бота
 const bot = new Telegraf<MyContext>(process.env.BOT_TOKEN || '');
@@ -71,13 +73,22 @@ bot.hears('Поиск', async (ctx) => {
 
 });
 
+
+bot.hears('Регистрация', async (ctx) => {
+  await ctx.scene.enter('search'); // поиска
+
+});
+
+
+
+
 // bot.hears('text', async (ctx) => {
 //   console.log(ctx.message.text)
 //     // Переход в сцену поиска с этим текстом
 //     // await ctx.scene.enter('search', { query: ctx.message.text });
 //     await ctx.scene.enter('search');
-// });
-// // @ts-ignore
+
+// @ts-ignore
 // bot.on('text', async (ctx) => {
 //   if (ctx.message.text.startsWith('/')) {
 //     // Пропускаем обработку команд
@@ -105,6 +116,7 @@ bot.command('ver', async (ctx) => {
 });
 
 
+
 (async () => {
   try {
     await bot.telegram.setMyCommands([
@@ -118,10 +130,13 @@ bot.command('ver', async (ctx) => {
   }
 })();
 
-bot.launch().then(() => {
-  const TEST_CHAT_ID = '102877129';
-  bot.telegram.sendMessage(TEST_CHAT_ID, '/start');
+bot.telegram.deleteWebhook().then(() => {
+  bot.launch().then(() => {
+    const TEST_CHAT_ID = '102877129';
+    bot.telegram.sendMessage(TEST_CHAT_ID, '/start');
+  });
 });
+
 
 
 export { bot };

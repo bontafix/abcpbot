@@ -1,5 +1,7 @@
 import { Markup } from 'telegraf';
 import { UserRepository } from './repositories/userRepository';
+import { Scenes } from 'telegraf';
+import registrationScene from './scenes/registrationScene';
 
 
 export function getProfileMenu(listProfile: any, uniqueParam?: number) {
@@ -30,4 +32,14 @@ export async function getMainMenuGuest() {
       'Регистрация']
   ]).resize();
 }
+
+// // // Добавляем обработчик для кнопки 'Регистрация'
+// export function handleGuestMenuSelection(ctx: Scenes.WizardContext) {
+//   if (ctx.message && 'text' in ctx.message) {
+//     const selection = ctx.message.text;
+//     if (selection === 'Регистрация') {
+//       ctx.scene.enter('registration');
+//     }
+//   }
+// }
 

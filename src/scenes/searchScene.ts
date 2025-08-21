@@ -72,7 +72,8 @@ const step2 = async (ctx: MyContext) => {
         });
       } else {
         await ctx.reply('Ничего не найдено.');
-        return ctx.wizard.back();  // Возврат на предыдущий шаг
+        return ctx.scene.reenter();  // Возврат на предыдущий шаг
+        // await ctx.scene.reenter(); // вернуться к step1
       }
     } else {
       await ctx.reply('Ошибка доступа к Abcp API. Попробуйте позже.');
@@ -131,7 +132,7 @@ const step3 = async (ctx: MyContext) => {
 
     const articles = (resultSearchArticles as any[]) || [];
     if (articles.length === 0) {
-      await ctx.reply('Ничего не найдено.');
+      await ctx.reply('2 Ничего не найдено.');
       await ctx.reply('Сделать новый поиск?', {
         reply_markup: { inline_keyboard: [[{ text: 'Новый поиск', callback_data: 'restart_search' }]] }
       });
