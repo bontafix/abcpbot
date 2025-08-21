@@ -1,0 +1,40 @@
+{
+  "name": "abcpbot",
+  "version": "0.0.3",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dr:gen": "npx drizzle-kit generate",
+    "dr:mig": "npx drizzle-kit migrate",
+    "dev": "ts-node-dev --respawn --rs --transpile-only src/server.ts",
+    "run": "nodemon --watch 'src/**/*.ts' --exec 'ts-node' src/server.ts",
+    "build": "tsc",
+    "pm2:start": "pm2 start bot.config.js",
+    "pm2:start:prod": "pm2 start bot.config.js --only abcpbot-prod",
+    "pm2:start:dev": "pm2 start bot.config.js --only abcpbot-dev",
+    "pm2:stop": "pm2 stop bot.config.js",
+    "pm2:restart": "pm2 restart bot.config.js",
+    "pm2:delete": "pm2 delete bot.config.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "axios": "^1.7.9",
+    "body-parser": "^1.20.3",
+    "dayjs": "^1.11.13",
+    "dotenv": "^16.4.7",
+    "drizzle-kit": "^0.31.4",
+    "drizzle-orm": "^0.38.3",
+    "express": "^4.21.2",
+    "pg": "^8.13.1",
+    "telegraf": "^4.16.3",
+    "typescript": "^5.7.3"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/pg": "^8.11.10",
+    "ts-node-dev": "^2.0.0"
+  }
+}
