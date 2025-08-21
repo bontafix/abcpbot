@@ -3,10 +3,13 @@ import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { Pool } from 'pg';
 import * as dotenv from 'dotenv';
 
-dotenv.config();
+// dotenv.config();
+const envFile = process.env.NODE_ENV === 'production' ? '.env.prod' : '.env.dev';
+dotenv.config({ path: envFile });
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+ 
 });
 
 export const db = drizzle(pool);
