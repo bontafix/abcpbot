@@ -147,6 +147,7 @@ const step3 = async (ctx: MyContext) => {
         `*Доступно*: ${String(a.availability ?? '-')}\n` +
         `*Срок*: ${String(a.deliveryProbability === 0 ? 'На складе' : a.descriptionOfDeliveryProbability)}\n` +
         `*Цена*: ${formatPrice(a.price)}\n `;
+        `*Вес*: ${formatPrice(a.weight)}\n `;
       //  `${a.isAnalog ? "Оригинальная замена!" : ""}`;
 
       await ctx.reply(md, {

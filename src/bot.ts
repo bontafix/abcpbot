@@ -13,6 +13,9 @@ import * as dotenv from 'dotenv';
 import fs from 'fs';
 import dayjs from 'dayjs';
 
+const envFile = process.env.NODE_ENV === 'production' ? '.env.prod' : '.env.dev';
+dotenv.config({ path: envFile });
+
 
 // Интерфейс состояния мастера
 interface SearchWizardState {
