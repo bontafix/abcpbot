@@ -10,24 +10,45 @@ interface OrderWizardState {
   deliveryMethod?: 'pickup' | 'delivery';
   address?: string;
   availability?: number;
+  title?: string;
+  price?: number;
 }
 
 const orderStep1 = async (ctx: AnyContext) => {
   const s = ctx.wizard.state as OrderWizardState;
-  const sceneState = (ctx.scene.state || {}) as { brand?: string; number?: string; availability?: number };
+  const sceneState = (ctx.scene.state || {}) as { brand?: string; number?: string; availability?: number; title?: string; price?: number };
   // Инициализируем из переданного state при enter
   s.brand = sceneState.brand;
   s.number = sceneState.number;
   s.availability = sceneState.availability;
+  s.title = sceneState.title;
+  s.price = sceneState.price;
 
   await ctx.reply(
-    `Оформление заказа\nБрэнд: ${s.brand ?? '-'}\nАртикул: ${s.number ?? '-'}\nДоступно: ${s.availability ?? '-'}\n\nВведите количество:`
+    `Оформление заказа\nБрэнд: ${s.brand ?? '-'}\nАртикул: ${s.number ?? '-'}\nДоступно: ${s.availability ?? '-'}\n\nВведите количество:`,
+    {
+      reply_markup: {
+        inline_keyboard: [[{ text: 'Отмена', callback_data: 'cancel_order' }]],
+      },
+    }
   );
   return ctx.wizard.next();
 };
 
 const orderStep2 = async (ctx: AnyContext) => {
   const s = ctx.wizard.state as OrderWizardState;
+
+  // Обработка отмены через кнопку
+  if (ctx.callbackQuery && 'data' in ctx.callbackQuery) {
+    const data = (ctx.callbackQuery as any).data as string;
+    if (data === 'cancel_order') {
+      await ctx.answerCbQuery('Отменено');
+      try { await ctx.deleteMessage(); } catch (e) { /* ignore */ }
+      const s2 = ctx.wizard.state as OrderWizardState;
+      // Переходим обратно в сцену поиска и передаём бренд/номер для повторного показа предложений
+      return ctx.scene.enter('search' as any, { resumeBrand: s2.brand, resumeNumber: s2.number });
+    }
+  }
 
   if (ctx.message && 'text' in ctx.message) {
     const qtyRaw = (ctx.message.text || '').trim();
@@ -65,9 +86,22 @@ const orderStep3 = async (ctx: AnyContext) => {
 
     if (data === 'delivery:pickup') {
       s.deliveryMethod = 'pickup';
-      await ctx.reply(
-        `Заказ принят:\nБрэнд: ${s.brand}\nАртикул: ${s.number}\nКоличество: ${s.quantity}\nДоставка: Самовывоз`
-      );
+      // Сохранение заказа
+      try {
+        const telegramId = ctx.from?.id ? String(ctx.from.id) : '';
+        if (telegramId && s.number && s.title && s.quantity && typeof s.price === 'number') {
+          const { OrderRepository } = await import('../repositories/orderRepository');
+          const { ClientRepository } = await import('../repositories/clientRepository');
+          const client = await ClientRepository.get(telegramId);
+          const name = Array.isArray(client) && client[0]?.name ? String(client[0].name) : '';
+          const phone = Array.isArray(client) && client[0]?.phone ? String(client[0].phone) : '';
+          await OrderRepository.create(telegramId, [
+            { number: String(s.number), title: String(s.title), count: Number(s.quantity), price: Number(s.price) }
+          ], `Доставка: Самовывоз`, name, phone);
+        }
+      } catch (e) { /* noop */ }
+
+      await ctx.reply(`Заказ принят:\nБрэнд: ${s.brand}\nАртикул: ${s.number}\nКоличество: ${s.quantity}\nДоставка: Самовывоз`);
       return ctx.scene.leave();
     }
 
@@ -92,9 +126,22 @@ const orderStep4 = async (ctx: AnyContext) => {
     }
     s.address = address;
 
-    await ctx.reply(
-      `Заказ принят:\nБрэнд: ${s.brand}\nАртикул: ${s.number}\nКоличество: ${s.quantity}\nДоставка: Адрес\n${s.address}`
-    );
+    // Сохранение заказа
+    try {
+      const telegramId = ctx.from?.id ? String(ctx.from.id) : '';
+      if (telegramId && s.number && s.title && s.quantity && typeof s.price === 'number') {
+        const { OrderRepository } = await import('../repositories/orderRepository');
+        const { ClientRepository } = await import('../repositories/clientRepository');
+        const client = await ClientRepository.get(telegramId);
+        const name = Array.isArray(client) && client[0]?.name ? String(client[0].name) : '';
+        const phone = Array.isArray(client) && client[0]?.phone ? String(client[0].phone) : '';
+        await OrderRepository.create(telegramId, [
+          { number: String(s.number), title: String(s.title), count: Number(s.quantity), price: Number(s.price) }
+        ], `Доставка: Адрес ${address}`, name, phone);
+      }
+    } catch (e) { /* noop */ }
+
+    await ctx.reply(`Заказ принят:\nБрэнд: ${s.brand}\nАртикул: ${s.number}\nКоличество: ${s.quantity}\nДоставка: Адрес\n${s.address}`);
     return ctx.scene.leave();
   }
 

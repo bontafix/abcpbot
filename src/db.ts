@@ -22,9 +22,9 @@ export const db = drizzle(pool);
   console.log('Migrations applied successfully.');
 })();
 
-export async function saveClientData(name: string, phoneNumber: string) {
+export async function saveClientData(telegramId: string, phone: string, name: string) {
   try {
-    await db.insert(client).values({ name, phoneNumber });
+    await db.insert(client).values({ telegram_id: telegramId, phone, name });
     console.log('Client data saved successfully.');
   } catch (error) {
     console.error('Error saving client data:', error);

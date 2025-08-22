@@ -1,4 +1,5 @@
 import { Scenes } from 'telegraf';
+import { ClientRepository } from '../repositories/clientRepository';
 
 // Универсальный контекст для совместимости
 interface RegistrationWizardState {
@@ -33,7 +34,25 @@ const registrationStep3 = async (ctx: Scenes.WizardContext) => {
       return; // остаёмся на шаге 3
     }
     (ctx.wizard.state as RegistrationWizardState).phoneNumber = phoneNumber;
-    await ctx.reply('Регистрация завершена. Спасибо!');
+
+    const telegramId = ctx.from?.id ? String(ctx.from.id) : '';
+    const name = (ctx.wizard.state as RegistrationWizardState).name || '';
+
+    if (!telegramId) {
+      await ctx.reply('Не удалось определить ваш Telegram ID. Попробуйте позже.');
+      return ctx.scene.leave();
+    }
+
+    try {
+      const result = await ClientRepository.insert(telegramId, phoneNumber, name);
+      if ((result as any)?.success === false) {
+        await ctx.reply((result as any).message || 'Не удалось сохранить данные клиента.');
+      } else {
+        await ctx.reply('Регистрация завершена. Спасибо!');
+      }
+    } catch (e) {
+      await ctx.reply('Произошла ошибка при сохранении данных. Попробуйте позже.');
+    }
     return ctx.scene.leave();
   }
   await ctx.reply('Пожалуйста, введите ваш номер телефона текстом.');

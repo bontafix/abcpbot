@@ -1,4 +1,4 @@
-import { pgTable, serial, text, bigint, varchar, numeric, timestamp } from 'drizzle-orm/pg-core';
+import { pgTable, serial, text, bigint, varchar, numeric, timestamp, jsonb } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 
@@ -27,9 +27,26 @@ export const service = pgTable('service', {
 
 export const client = pgTable('client', {
   id: serial('id').primaryKey(),
+  telegram_id: varchar('telegram_id', { length: 50 }).notNull(),
+  phone: varchar('phone', { length: 20 }).notNull(),
   name: varchar('name', { length: 255 }).notNull(),
-  phoneNumber: varchar('phone_number', { length: 20 }).notNull(),
-  createdAt: timestamp('created_at')
+  datetime: timestamp('created_at')
     .notNull()
     .default(sql`now()`), // Устанавливает текущее время при создании записи
+});
+
+export const order = pgTable('order', {
+  id: serial('id').primaryKey(),
+  telegram_id: varchar('telegram_id', { length: 50 }).notNull(),
+  name: varchar('name', { length: 255 }).notNull(),
+  phone: varchar('phone', { length: 20 }).notNull(),
+  description: text('description'),
+  items: jsonb('items').notNull(),
+  status: varchar('status', { length: 32 }).notNull().default('new'),
+  status_datetime: timestamp('status_datetime')
+    .notNull()
+    .default(sql`now()`),
+  datetime: timestamp('created_at')
+    .notNull()
+    .default(sql`now()`),
 });

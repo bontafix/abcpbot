@@ -4,10 +4,13 @@ import { Telegraf, session, Scenes } from 'telegraf';
 // import axios from 'axios';
 import { message } from 'telegraf/filters';
 import { getMainMenuGuest, getMainMenuUser, getProfileMenu } from './menu';
+import { ClientRepository } from './repositories/clientRepository';
 import { UserRepository } from './repositories/userRepository';
 import searchWizard from './scenes/searchScene';
 import orderScene from './scenes/orderScene';
 import registrationScene from './scenes/registrationScene';
+import profileScene from './scenes/profileScene';
+import ordersScene from './scenes/ordersScene';
 
 
 import { keyboard } from 'telegraf/typings/markup';
@@ -34,7 +37,7 @@ interface MyWizardSession extends Scenes.WizardSessionData {
 interface MyContext extends Scenes.WizardContext<MyWizardSession> { }
 
 // Создаём Stage
-const stage = new Scenes.Stage<MyContext>([searchWizard as any, orderScene as any, registrationScene as any]);
+const stage = new Scenes.Stage<MyContext>([searchWizard as any, orderScene as any, registrationScene as any, profileScene as any, ordersScene as any]);
  
 // Создаём бота
 const bot = new Telegraf<MyContext>(process.env.BOT_TOKEN || '');
@@ -57,14 +60,17 @@ bot.use((ctx, next) => {
 });
 
 bot.start(async (ctx) => {
-  console.log(ctx.message.from.id);
-  const telegramId = String(ctx.message.from.id)
-  const profileUser = await UserRepository.findUserByTelegramId(telegramId)
-  // console.log(profileUser)
-  if (Array.isArray(profileUser) && profileUser.length > 0) {
-    await ctx.scene.enter('profile');
-  } else {
-    await ctx.reply('Добро пожаловать! Выберите опцию:', await getMainMenuGuest());
+  const telegramId = String(ctx.message.from.id);
+  try {
+    // Проверка наличия клиента
+    const client = await ClientRepository.get(telegramId);
+    if (Array.isArray(client) && client.length > 0) {
+      await ctx.reply('Добро пожаловать!', await getMainMenuUser());
+    } else {
+      await ctx.reply('Добро пожаловать! Зарегистрируйтесь, чтобы использовать все возможности.', await getMainMenuGuest());
+    }
+  } catch (e) {
+    await ctx.reply('Добро пожаловать! Зарегистрируйтесь, чтобы использовать все возможности.', await getMainMenuGuest());
   }
 });
 
@@ -75,8 +81,16 @@ bot.hears('Поиск', async (ctx) => {
 
 
 bot.hears('Регистрация', async (ctx) => {
-  await ctx.scene.enter('search'); // поиска
+  await ctx.scene.enter('registration');
 
+});
+
+bot.hears('Профиль', async (ctx) => {
+  await ctx.scene.enter('profile');
+});
+
+bot.hears('Заказы', async (ctx) => {
+  await ctx.scene.enter('orders');
 });
 
 

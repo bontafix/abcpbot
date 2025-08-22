@@ -29,7 +29,7 @@ export async function getMainMenuGuest() {
 
   return Markup.keyboard([
     ['Поиск',
-      'Регистрация']
+     'Регистрация']
   ]).resize();
 }
 
