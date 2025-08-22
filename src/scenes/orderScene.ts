@@ -86,6 +86,16 @@ const orderStep3 = async (ctx: AnyContext) => {
 
     if (data === 'delivery:pickup') {
       s.deliveryMethod = 'pickup';
+      // Проверка регистрации
+      const telegramId = ctx.from?.id ? String(ctx.from.id) : '';
+      const { ClientRepository } = await import('../repositories/clientRepository');
+      const client = telegramId ? await ClientRepository.get(telegramId) : [];
+      if (!Array.isArray(client) || client.length === 0) {
+        await ctx.reply('Перед оформлением нужно зарегистрироваться.');
+        // Переход в регистрацию с возвратом обратно в order
+        // @ts-ignore
+        return ctx.scene.enter('registration', { afterScene: 'order', afterState: { brand: s.brand, number: s.number, availability: s.availability } });
+      }
       // Сохранение заказа
       try {
         const telegramId = ctx.from?.id ? String(ctx.from.id) : '';
@@ -107,6 +117,16 @@ const orderStep3 = async (ctx: AnyContext) => {
 
     if (data === 'delivery:delivery') {
       s.deliveryMethod = 'delivery';
+      // Проверка регистрации
+      const telegramId = ctx.from?.id ? String(ctx.from.id) : '';
+      const { ClientRepository } = await import('../repositories/clientRepository');
+      const client = telegramId ? await ClientRepository.get(telegramId) : [];
+      if (!Array.isArray(client) || client.length === 0) {
+        await ctx.reply('Перед оформлением нужно зарегистрироваться.');
+        // Переход в регистрацию с возвратом обратно в order
+        // @ts-ignore
+        return ctx.scene.enter('registration', { afterScene: 'order', afterState: { brand: s.brand, number: s.number, availability: s.availability } });
+      }
       await ctx.reply('Введите адрес доставки:');
       return ctx.wizard.next();
     }

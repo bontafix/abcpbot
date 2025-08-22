@@ -72,6 +72,16 @@ export const OrderRepository = {
       return { success: false, message: 'Не удалось удалить заказ.' };
     }
   },
+
+  async deleteAllByTelegramId(telegramId: string) {
+    try {
+      await db.delete(order).where(eq(order.telegram_id, telegramId));
+      return { success: true, message: 'Все заказы удалены.' };
+    } catch (error) {
+      console.error('Ошибка при удалении заказов пользователя:', error);
+      return { success: false, message: 'Не удалось удалить заказы.' };
+    }
+  },
 };
 
 

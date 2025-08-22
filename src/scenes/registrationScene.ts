@@ -47,12 +47,22 @@ const registrationStep3 = async (ctx: Scenes.WizardContext) => {
       const result = await ClientRepository.insert(telegramId, phoneNumber, name);
       if ((result as any)?.success === false) {
         await ctx.reply((result as any).message || 'Не удалось сохранить данные клиента.');
-      } else {
-        await ctx.reply('Регистрация завершена. Спасибо!');
+        return ctx.scene.leave();
       }
     } catch (e) {
       await ctx.reply('Произошла ошибка при сохранении данных. Попробуйте позже.');
+      return ctx.scene.leave();
     }
+
+    // После успешной регистрации: если есть целевая сцена, переходим в неё
+    const forward = (ctx.scene.state || {}) as { afterScene?: string; afterState?: any };
+    if (forward.afterScene) {
+      await ctx.reply('Регистрация завершена. Продолжаем.');
+      // @ts-ignore
+      return ctx.scene.enter(forward.afterScene, forward.afterState || {});
+    }
+
+    await ctx.reply('Регистрация завершена. Спасибо!');
     return ctx.scene.leave();
   }
   await ctx.reply('Пожалуйста, введите ваш номер телефона текстом.');

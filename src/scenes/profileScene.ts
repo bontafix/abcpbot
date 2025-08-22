@@ -34,8 +34,8 @@ const profileHandle = async (ctx: Scenes.WizardContext) => {
     }
     const info = client[0];
     await ctx.reply(
-      `Вы собираетесь удалить профиль:\nИмя: ${info.name}\nТелефон: ${info.phone}\n\nВы уверены?`,
-      Markup.keyboard([[ 'Да, удалить', 'Отмена' ], [ 'Назад' ]]).resize()
+      `Вы собираетесь удалить профиль:\nИмя: ${info.name}\nТелефон: ${info.phone}\n\nУдалить заказы и историю поиска вместе с профилем?`,
+      Markup.keyboard([[ 'Удалить всё', 'Удалить только профиль' ], [ 'Отмена', 'Назад' ]]).resize()
     );
     // Переходим на шаг подтверждения удаления
     // @ts-ignore
@@ -59,7 +59,16 @@ const profileDeleteConfirm = async (ctx: Scenes.WizardContext) => {
   const text = ctx.message.text;
   const telegramId = ctx.from?.id ? String(ctx.from.id) : '';
 
-  if (text === 'Да, удалить') {
+  if (text === 'Удалить всё' || text === 'Удалить только профиль') {
+    // Если выбрали удалить всё — чистим заказы и историю
+    if (text === 'Удалить всё') {
+      try {
+        const { OrderRepository } = await import('../repositories/orderRepository');
+        const { SearchHistoryRepository } = await import('../repositories/searchHistoryRepository');
+        await OrderRepository.deleteAllByTelegramId(telegramId);
+        await SearchHistoryRepository.clear(telegramId);
+      } catch (e) { /* ignore */ }
+    }
     const result = await ClientRepository.delete(telegramId);
     await ctx.reply(result.message, await getMainMenuGuest());
     return ctx.scene.leave();
