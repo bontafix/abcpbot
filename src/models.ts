@@ -1,4 +1,4 @@
-import { pgTable, serial, text, bigint, varchar, numeric, timestamp, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, serial, text, bigint, varchar, numeric, timestamp, jsonb, integer } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 
@@ -46,6 +46,16 @@ export const order = pgTable('order', {
   status_datetime: timestamp('status_datetime')
     .notNull()
     .default(sql`now()`),
+  datetime: timestamp('created_at')
+    .notNull()
+    .default(sql`now()`),
+});
+
+export const search_history = pgTable('search_history', {
+  id: serial('id').primaryKey(),
+  telegram_id: varchar('telegram_id', { length: 50 }).notNull(),
+  query: varchar('query', { length: 255 }).notNull(),
+  results_count: integer('results_count').notNull().default(0),
   datetime: timestamp('created_at')
     .notNull()
     .default(sql`now()`),

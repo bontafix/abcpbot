@@ -90,7 +90,13 @@ const step1 = async (ctx: MyContext) => {
     return ctx.wizard.selectStep(2);
   }
 
-  await ctx.reply('Введите код запчасти:');
+  await ctx.reply('Введите код запчасти:', {
+    reply_markup: {
+      keyboard: [[{ text: 'История' }, { text: 'Очистить историю' }], [{ text: 'Назад' }]],
+      resize_keyboard: true,
+      one_time_keyboard: false,
+    } as any,
+  } as any);
   return ctx.wizard.next();
 };
 
@@ -110,6 +116,43 @@ const step2 = async (ctx: MyContext) => {
   }
 
   if (ctx.message && 'text' in ctx.message) {
+    // История
+    if (ctx.message.text === 'История') {
+      const telegramId = ctx.from?.id ? String(ctx.from.id) : '';
+      if (!telegramId) {
+        await ctx.reply('Не удалось определить Telegram ID.');
+        return;
+      }
+      const { SearchHistoryRepository } = await import('../repositories/searchHistoryRepository');
+      const rows = await SearchHistoryRepository.last(telegramId, 10);
+      if (!Array.isArray(rows) || rows.length === 0) {
+        await ctx.reply('История пуста.');
+        return;
+      }
+      const textOut = rows.map((x: any, i: number) => `${i + 1}. ${x.query}`).join('\n');
+      await ctx.reply(textOut || 'История пуста.');
+      return; // остаёмся на шаге 2
+    }
+
+    // Назад
+    if (ctx.message.text === 'Назад') {
+      const { getMainMenuUser } = await import('../menu');
+      await ctx.reply('Возвращаемся в меню.', await getMainMenuUser());
+      return ctx.scene.leave();
+    }
+
+    // Очистить историю
+    if (ctx.message.text === 'Очистить историю') {
+      const telegramId = ctx.from?.id ? String(ctx.from.id) : '';
+      if (!telegramId) {
+        await ctx.reply('Не удалось определить Telegram ID.');
+        return;
+      }
+      const { SearchHistoryRepository } = await import('../repositories/searchHistoryRepository');
+      await SearchHistoryRepository.clear(telegramId);
+      await ctx.reply('История очищена.');
+      return; // остаёмся на шаге 2
+    }
     const state = ctx.wizard.state as SearchWizardState;
     state.number = ctx.message.text;
     console.log(state.number);
@@ -120,6 +163,14 @@ const step2 = async (ctx: MyContext) => {
       const entries_ = Object.entries(state.results || {}) as [string, SearchResultItem][];
       console.log(entries_);
       const entries = entries_;
+      // Сохраняем запрос в историю с количеством найденных позиций
+      try {
+        const telegramId = ctx.from?.id ? String(ctx.from.id) : '';
+        if (telegramId) {
+          const { SearchHistoryRepository } = await import('../repositories/searchHistoryRepository');
+          await SearchHistoryRepository.add(telegramId, state.number || '', entries.length);
+        }
+      } catch {}
       
       if (entries.length > 0) {
         const buttons = entries.map(([key, item]) => [
@@ -137,6 +188,8 @@ const step2 = async (ctx: MyContext) => {
         });
       } else {
         await ctx.reply('Ничего не найдено.');
+        // На случай нулевого результата (дублирующая запись не создаётся выше)
+        // Возвращаемся к вводу
         return ctx.scene.reenter();
       }
     } else {
@@ -154,7 +207,7 @@ const step3 = async (ctx: MyContext) => {
   if (ctx.callbackQuery && 'data' in ctx.callbackQuery) {
     const data = (ctx.callbackQuery as any).data as string;
 
-    // Обработка кнопки «Новый поиск»
+    // Обработка кнопки «Новый поиск» → показываем меню поиска на шаге ввода
     if (data === 'restart_search') {
       await ctx.answerCbQuery();
       const s = ctx.wizard.state as SearchWizardState;
@@ -164,7 +217,15 @@ const step3 = async (ctx: MyContext) => {
         delete s.selectedBrandNumber;
         delete s.analogArticles;
       }
-      await ctx.scene.reenter();
+      await ctx.reply('Введите код запчасти:', {
+        reply_markup: {
+          keyboard: [[{ text: 'История' }, { text: 'Назад' }]],
+          resize_keyboard: true,
+          one_time_keyboard: false,
+        } as any,
+      } as any);
+      // Переходим к шагу 2 (обработчик ввода и меню)
+      ctx.wizard.selectStep(1);
       return;
     }
 

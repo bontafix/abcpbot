@@ -38,6 +38,11 @@ interface MyContext extends Scenes.WizardContext<MyWizardSession> { }
 
 // Создаём Stage
 const stage = new Scenes.Stage<MyContext>([searchWizard as any, orderScene as any, registrationScene as any, profileScene as any, ordersScene as any]);
+// Глобальная навигация внутри сцен: кнопка «Поиск»
+stage.hears('Поиск', async (ctx) => {
+  try { await ctx.scene.leave(); } catch {}
+  await ctx.scene.enter('search');
+});
  
 // Создаём бота
 const bot = new Telegraf<MyContext>(process.env.BOT_TOKEN || '');
@@ -75,8 +80,7 @@ bot.start(async (ctx) => {
 });
 
 bot.hears('Поиск', async (ctx) => {
-  await ctx.scene.enter('search'); // поиска
-
+  await ctx.scene.enter('search');
 });
 
 
