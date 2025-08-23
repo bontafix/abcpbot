@@ -39,7 +39,7 @@ const profileHandle = async (ctx: Scenes.WizardContext) => {
     );
     // Переходим на шаг подтверждения удаления
     // @ts-ignore
-    ctx.wizard.selectStep(3);
+    ctx.wizard.selectStep(4);
     return;
   }
 
@@ -82,12 +82,49 @@ const profileDeleteConfirm = async (ctx: Scenes.WizardContext) => {
 
 const profileEdit = async (ctx: Scenes.WizardContext) => {
   if (!ctx.message || !('text' in ctx.message)) return;
-  const telegramId = ctx.from?.id ? String(ctx.from.id) : '';
   const payload = (ctx.message.text || '').split('\n').map((s) => s.trim()).filter(Boolean);
+
+  if (payload.length < 2) {
+    await ctx.reply(
+      'Некорректный формат. Отправьте имя и телефон через перенос строки.\nНапример:\nИван Иванов\n+79990000000',
+      Markup.keyboard([[ 'Отмена' ]]).resize()
+    );
+    return; // остаёмся на текущем шаге
+  }
+
   const [name, phone] = payload;
-  const result = await ClientRepository.update(telegramId, { name, phone });
-  await ctx.reply(result.message);
-  return ctx.scene.leave();
+  // Сохраняем во временное состояние для подтверждения
+  // @ts-ignore
+  ctx.wizard.state.tempName = name;
+  // @ts-ignore
+  ctx.wizard.state.tempPhone = phone;
+
+  await ctx.reply(
+    `Вы ввели новые данные:\nИмя: ${name}\nТелефон: ${phone}\n\nСохранить изменения?`,
+    Markup.keyboard([[ 'Сохранить', 'Отмена' ]]).resize()
+  );
+  return ctx.wizard.next();
+};
+
+const profileEditConfirm = async (ctx: Scenes.WizardContext) => {
+  if (!ctx.message || !('text' in ctx.message)) return;
+  const text = ctx.message.text;
+  const telegramId = ctx.from?.id ? String(ctx.from.id) : '';
+
+  if (text === 'Сохранить') {
+    // @ts-ignore
+    const name = ctx.wizard.state.tempName as string;
+    // @ts-ignore
+    const phone = ctx.wizard.state.tempPhone as string;
+    const result = await ClientRepository.update(telegramId, { name, phone });
+    await ctx.reply(result.message, await getMainMenuUser());
+    return ctx.scene.leave();
+  }
+
+  if (text === 'Отмена' || text === 'Назад') {
+    await ctx.reply('Изменения отменены.', await getMainMenuUser());
+    return ctx.scene.leave();
+  }
 };
 
 const profileScene = new Scenes.WizardScene<Scenes.WizardContext>(
@@ -95,6 +132,7 @@ const profileScene = new Scenes.WizardScene<Scenes.WizardContext>(
   profileEnter,
   profileHandle,
   profileEdit,
+  profileEditConfirm,
   profileDeleteConfirm
 );
 
