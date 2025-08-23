@@ -16,6 +16,8 @@ interface SearchWizardState {
     brand: string;
     supplierCode?: string;
     lastUpdateTime?: string;
+    availability?: number;
+    availabilityTransformed?: unknown;
   }>; // Детали позиции для оформления заказа
 }
 
@@ -46,56 +48,11 @@ const step1 = async (ctx: MyContext) => {
       return ctx.wizard.next();
     }
 
-    articles.sort((a, b) => Number(Boolean(a.isAnalog)) - Number(Boolean(b.isAnalog)));
-
-    const analogArticles = articles.filter(a => a.isAnalog);
-    const nonAnalogArticles = articles.filter(a => !a.isAnalog);
-
-    // Сохраним аналоги и детали
+    const { analogArticles, nonAnalogArticles } = sortAndSplitArticles(articles);
+    updateItemDetails(state, articles);
     state.analogArticles = analogArticles;
-    const detailsMap: Record<string, { 
-      title: string; 
-      price: number; 
-      distributorId: string;
-      brand: string;
-      supplierCode?: string;
-      lastUpdateTime?: string;
-    }> = (state.itemDetails ||= {} as any);
-    for (const a of articles) {
-      const key2 = `${String(a.brand)}:${String(a.number)}`;
-      detailsMap[key2] = { 
-        title: String(a.description ?? '-'), 
-        price: Number(a.price ?? 0),
-        distributorId: String((a as any).distributorId ?? ''),
-        brand: String(a.brand ?? ''),
-        supplierCode: String((a as any).supplierCode ?? ''),
-        lastUpdateTime: String((a as any).lastUpdateTime ?? '')
-      };
-    }
-
-    for (const a of nonAnalogArticles) {
-      await ctx.reply(renderPublicItem(a), {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [[
-            { text: 'Заказать', callback_data: `order:${a.brand}:${a.number}:${a.availability ?? ''}` },
-            { text: 'Новый поиск', callback_data: 'restart_search' }
-          ]]
-        }
-      });
-    }
-
-    if (analogArticles.length > 0) {
-      await ctx.reply('Выберите вариант:', {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [[
-            { text: `📋 Показать аналоги (${analogArticles.length})`, callback_data: 'show_analogs' },
-            { text: 'Новый поиск', callback_data: 'restart_search' }
-          ]]
-        }
-      });
-    }
+    await sendItems(ctx, nonAnalogArticles);
+    await replyAnalogsButton(ctx, analogArticles.length);
 
     // Переходим к шагу 3, чтобы обрабатывать нажатия
     return ctx.wizard.selectStep(2);
@@ -176,8 +133,8 @@ const step2 = async (ctx: MyContext) => {
       //   sample: Object.entries(state.results || {})[0]
       // });
 
-      console.log(state.results);
-      console.log(`state.results =====================`);
+      // console.log(state.results);
+      // console.log(`state.results =====================`);
 
       const entries_ = Object.entries(state.results || {}) as [string, SearchResultItem][];
       console.log(entries_);
@@ -260,15 +217,16 @@ const step3 = async (ctx: MyContext) => {
       const availability = availabilityRaw ? Number(availabilityRaw) : undefined;
       const key2 = `${brand}:${number}`;
       const details = (state.itemDetails || {})[key2] || { title: '', price: 0 };
-      await ctx.scene.enter('order' as any, { 
-        brand, 
-        number, 
-        availability, 
-        title: details.title, 
+      await ctx.scene.enter('order' as any, {
+        brand,
+        number,
+        availability,
+        title: details.title,
         price: details.price,
         distributorId: (details as any).distributorId || '',
         supplierCode: (details as any).supplierCode || '',
-        lastUpdateTime: (details as any).lastUpdateTime || ''
+        lastUpdateTime: (details as any).lastUpdateTime || '',
+        availabilityTransformed: (details as any).availabilityTransformed,
       });
       return;
     }
@@ -302,59 +260,11 @@ const step3 = async (ctx: MyContext) => {
       return;
     }
 
-    articles.sort((a, b) => Number(Boolean(a.isAnalog)) - Number(Boolean(b.isAnalog)));
-    const analogArticles = articles.filter(a => a.isAnalog);
-    const nonAnalogArticles = articles.filter(a => !a.isAnalog);
-
-    // Сохраним детали (название/цена/бренд/поставщик/время обновления) для последующего оформления заказа
-    const detailsMap: Record<string, {
-      title: string;
-      price: number;
-      distributorId: string;
-      brand: string;
-      supplierCode?: string;
-      lastUpdateTime?: string;
-    }> = (state.itemDetails ||= {} as any);
-    for (const a of articles) {
-      const key2 = `${String(a.brand)}:${String(a.number)}`;
-      detailsMap[key2] = {
-        title: String(a.description ?? '-'),
-        price: Number(a.price ?? 0),
-        distributorId: String((a as any).distributorId ?? ''),
-        brand: String(a.brand ?? ''),
-        supplierCode: String((a as any).supplierCode ?? ''),
-        lastUpdateTime: String((a as any).lastUpdateTime ?? ''),
-      };
-    }
-
-    // Сохраняем аналоги в состоянии для последующего использования
+    const { analogArticles, nonAnalogArticles } = sortAndSplitArticles(articles);
+    updateItemDetails(state, articles);
     state.analogArticles = analogArticles;
-
-    // Показываем неаналогичные товары
-    for (const a of nonAnalogArticles) {
-      await ctx.reply(renderPublicItem(a), {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [[
-            { text: 'Заказать', callback_data: `order:${a.brand}:${a.number}:${a.availability ?? ''}` },
-            { text: 'Новый поиск', callback_data: 'restart_search' }
-          ]]
-        }
-      });
-    }
-
-    // Показываем кнопку для аналогов, если они есть
-    if (analogArticles.length > 0) {
-      await ctx.reply('Выберите вариант:', {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [[
-            { text: `📋 Показать аналоги (${analogArticles.length})`, callback_data: 'show_analogs' },
-            { text: 'Новый поиск', callback_data: 'restart_search' }
-          ]]
-        }
-      });
-    }
+    await sendItems(ctx, nonAnalogArticles);
+    await replyAnalogsButton(ctx, analogArticles.length);
 
     await ctx.answerCbQuery();
     return;
@@ -377,17 +287,7 @@ async function showAnalogArticles(ctx: MyContext) {
   });
 
   // Показываем аналогичные товары
-  for (const a of analogArticles) {
-    await ctx.reply(renderPublicItem(a), {
-      parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [[
-          { text: 'Заказать', callback_data: `order:${a.brand}:${a.number}:${a.availability ?? ''}` },
-          { text: 'Новый поиск', callback_data: 'restart_search' }
-        ]]
-      }
-    });
-  }
+  await sendItems(ctx, analogArticles);
 }
 
 // Интерфейс для результата поиска
@@ -429,8 +329,76 @@ function renderPublicItem(a: any): string {
   return `*Брэнд*: ${String(a.brand)}\n` +
     `*Артикул*: ${String(a.number)}\n` +
     `*Описание*: ${String(a.description ?? '-')}\n` +
-    `*Доступно*: ${String(a.availability ?? '-')}\n` +
+    `*Доступно*: ${String(a.availabilityTransformed ?? a.availability ?? '-')}\n` +
     `*Срок*: ${String(a.deliveryProbability === 0 ? 'На складе' : a.descriptionOfDeliveryProbability)}\n` +
     `*Цена*: ${formatPrice(a.price)}\n` +
     `*Вес*: ${String(a.weight)}`;
 }
+
+// Хелперы для снижения дублирования
+function sortAndSplitArticles(articles: any[]) {
+  const sorted = [...articles];
+  sorted.sort((a, b) => Number(Boolean(a.isAnalog)) - Number(Boolean(b.isAnalog)));
+  const analogArticles = sorted.filter(a => a.isAnalog);
+  const nonAnalogArticles = sorted.filter(a => !a.isAnalog);
+  return { analogArticles, nonAnalogArticles };
+}
+
+function updateItemDetails(state: SearchWizardState, articles: any[]) {
+  const detailsMap: Record<string, {
+    title: string;
+    price: number;
+    distributorId: string;
+    brand: string;
+    supplierCode?: string;
+    lastUpdateTime?: string;
+    availability?: number;
+    availabilityTransformed?: unknown;
+  }> = (state.itemDetails ||= {} as any);
+  for (const a of articles) {
+    const key2 = `${String(a.brand)}:${String(a.number)}`;
+    detailsMap[key2] = {
+      title: String(a.description ?? '-'),
+      price: Number(a.price ?? 0),
+      distributorId: String((a as any).distributorId ?? ''),
+      brand: String(a.brand ?? ''),
+      supplierCode: String((a as any).supplierCode ?? ''),
+      lastUpdateTime: String((a as any).lastUpdateTime ?? ''),
+      availability: typeof a.availability === 'number' ? Number(a.availability) : undefined,
+      availabilityTransformed: (a as any).availabilityTransformed,
+    };
+  }
+}
+
+function getOrderInlineKeyboard(a: any) {
+  return {
+    inline_keyboard: [[
+      { text: 'Заказать', callback_data: `order:${a.brand}:${a.number}:${a.availability ?? ''}` },
+      { text: 'Новый поиск', callback_data: 'restart_search' }
+    ]]
+  } as any;
+}
+
+async function sendItems(ctx: MyContext, items: any[]) {
+  for (const a of items) {
+    await ctx.reply(renderPublicItem(a), {
+      parse_mode: 'Markdown',
+      reply_markup: getOrderInlineKeyboard(a)
+    } as any);
+  }
+}
+
+async function replyAnalogsButton(ctx: MyContext, analogCount: number) {
+  if (analogCount <= 0) return;
+  await ctx.reply('Выберите вариант:', {
+    parse_mode: 'Markdown',
+    reply_markup: {
+      inline_keyboard: [[
+        { text: `📋 Показать аналоги (${analogCount})`, callback_data: 'show_analogs' },
+        { text: 'Новый поиск', callback_data: 'restart_search' }
+      ]]
+    }
+  } as any);
+}
+
+// availabilityTransformed теперь формируется в abcp.searchArticles

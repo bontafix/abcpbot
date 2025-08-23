@@ -1,4 +1,10 @@
 import axios from 'axios';
+import { transformAvailability } from './utils/availability';
+
+// In-memory кэш для getDistributors с дедупликацией параллельных запросов
+let distributorsCache: any[] | null = null;
+let distributorsCacheExpiresAt = 0; // ms timestamp
+let distributorsFetchPromise: Promise<any[]> | null = null;
 
 
 // exports.searchCompanies = async (url:string, key:string, query: string) => {
@@ -60,7 +66,15 @@ export async function searchArticles(
         const response = await axios.request(config);
         // console.log(response?.data);
         if (response?.data !== 0) {
-            return response?.data;
+            const data = response?.data as any;
+            if (Array.isArray(data)) {
+                // Добавим поле с преобразованным availability, сохранив исходное
+                return data.map((item) => ({
+                    ...item,
+                    availabilityTransformed: transformAvailability(item?.availability),
+                }));
+            }
+            return data;
         } else {
             console.error(`артикул ${number}, не найден`);
             return [];
@@ -75,6 +89,19 @@ export async function searchArticles(
 
 export async function getDistributors() {
     try {
+        const now = Date.now();
+        const ttlSeconds = Number(process.env.DISTRIBUTORS_TTL_SECONDS ?? 300);
+
+        // Вернем из кэша, если валиден
+        if (distributorsCache && now < distributorsCacheExpiresAt) {
+            return distributorsCache;
+        }
+
+        // Дедупликация одновременных запросов
+        if (distributorsFetchPromise) {
+            return await distributorsFetchPromise;
+        }
+
         const host = process.env.ABCP_HOST;
         const user = process.env.ABCP_USER;
         const pass = process.env.ABCP_PASS;
@@ -89,12 +116,27 @@ export async function getDistributors() {
             url: url,
             headers: {}
         };
-        const response = await axios.request(config);
-        if (response?.data !== 0) {
-            return response?.data;
-        } else {
-            console.error('дистрибьюторы не найдены');
-            return [];
+
+        // Начинаем фоновый запрос и расшариваем промис
+        distributorsFetchPromise = (async () => {
+            const response = await axios.request(config);
+            if (response?.data !== 0) {
+                const data = response?.data as any[];
+                // Успешный ответ — запишем в кэш
+                distributorsCache = data;
+                distributorsCacheExpiresAt = Date.now() + ttlSeconds * 1000;
+                return data;
+            } else {
+                console.error('дистрибьюторы не найдены');
+                return [];
+            }
+        })();
+
+        try {
+            const data = await distributorsFetchPromise;
+            return data;
+        } finally {
+            distributorsFetchPromise = null;
         }
     } catch (error: any) {
         console.error('Ошибка при выполнении запроса:', error.message);

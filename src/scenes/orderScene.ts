@@ -10,6 +10,7 @@ interface OrderWizardState {
   deliveryMethod?: 'pickup' | 'delivery';
   address?: string;
   availability?: number;
+  availabilityTransformed?: unknown;
   title?: string;
   price?: number;
   distributorId?: string;
@@ -19,11 +20,12 @@ interface OrderWizardState {
 
 const orderStep1 = async (ctx: AnyContext) => {
   const s = ctx.wizard.state as OrderWizardState;
-  const sceneState = (ctx.scene.state || {}) as { brand?: string; number?: string; availability?: number; title?: string; price?: number; distributorId?: string; supplierCode?: string; lastUpdateTime?: string };
+  const sceneState = (ctx.scene.state || {}) as { brand?: string; number?: string; availability?: number; availabilityTransformed?: unknown; title?: string; price?: number; distributorId?: string; supplierCode?: string; lastUpdateTime?: string };
   // Инициализируем из переданного state при enter
   s.brand = sceneState.brand;
   s.number = sceneState.number;
   s.availability = sceneState.availability;
+  s.availabilityTransformed = sceneState.availabilityTransformed;
   s.title = sceneState.title;
   s.price = sceneState.price;
   s.distributorId = sceneState.distributorId;
@@ -31,7 +33,8 @@ const orderStep1 = async (ctx: AnyContext) => {
   s.lastUpdateTime = sceneState.lastUpdateTime;
 
   await ctx.reply(
-    `Оформление заказа\nБрэнд: ${s.brand ?? '-'}\nАртикул: ${s.number ?? '-'}\nДоступно: ${s.availability ?? '-'}\n\nВведите количество:`,
+    `Оформление заказа\nБрэнд: ${s.brand ?? '-'}\nАртикул: ${s.number ?? '-'}\nДоступно: ${String(s.availabilityTransformed ?? s.availability ?? '-')}` +
+    `\n\nВведите количество:`,
     {
       reply_markup: {
         inline_keyboard: [[{ text: 'Отмена', callback_data: 'cancel_order' }]],
@@ -63,8 +66,9 @@ const orderStep2 = async (ctx: AnyContext) => {
       await ctx.reply('Укажите корректное положительное число.');
       return; // остаёмся на шаге 2
     }
-    if (typeof s.availability === 'number' && qty > s.availability) {
-      await ctx.reply(`Недостаточно на складе. Доступно: ${s.availability}. Укажите количество не больше.`);
+    const availForCheck = s.availabilityTransformed;
+    if (typeof availForCheck === 'number' && qty > availForCheck) {
+      await ctx.reply(`Недостаточно на складе. Доступно: ${availForCheck}. Укажите количество не больше.`);
       return; // остаёмся на шаге 2
     }
     s.quantity = qty;

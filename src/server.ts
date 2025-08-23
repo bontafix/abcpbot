@@ -24,14 +24,29 @@ if (!process.env.BOT_TOKEN || !WEBHOOK_URL) {
   throw new Error('Необходимо указать BOT_TOKEN и WEBHOOK_URL в .env');
 }
 
-// Формируем полный URL для webhook
-const fullWebhookUrl = WEBHOOK_URL + WEBHOOK_PATH;
+// Формируем полный URL для webhook безопасно (учитывая слэши)
+const fullWebhookUrl = new URL(WEBHOOK_PATH, WEBHOOK_URL).toString();
 console.log('Полный webhook URL:', fullWebhookUrl);
 
 // Устанавливаем webhook (один раз)
-bot.telegram.setWebhook(fullWebhookUrl)
+bot.telegram.setWebhook(fullWebhookUrl, { drop_pending_updates: true })
   .then(() => {
     console.log('>> Webhook установлен:', fullWebhookUrl);
+    // Логируем текущее состояние вебхука у Telegram
+    bot.telegram.getWebhookInfo()
+      .then((info) => {
+        console.log('WebhookInfo:', info);
+      })
+      .catch((err) => {
+        console.error('Ошибка getWebhookInfo:', err);
+      });
+    // Опционально: отправим тестовую /start в чат для проверки (если указан TEST_CHAT_ID)
+    const testChatId = process.env.TEST_CHAT_ID;
+    if (testChatId) {
+      bot.telegram.sendMessage(testChatId, '/start')
+        .then(() => console.log('Тестовая /start отправлена в', testChatId))
+        .catch((err) => console.error('Не удалось отправить тестовую /start:', err));
+    }
   })
   .catch((err) => {
     console.error('Ошибка установки webhook:', err);
@@ -39,8 +54,13 @@ bot.telegram.setWebhook(fullWebhookUrl)
 
 app.use(express.json());
 
-// Регистрируем webhook callback для указанного пути
-app.use(WEBHOOK_PATH, bot.webhookCallback(WEBHOOK_PATH));
+// Простой GET-пинг того же пути — помогает проверить маршрутизацию и прокси
+app.get(WEBHOOK_PATH, (req, res) => {
+  res.status(200).send('webhook ok');
+});
+
+// Регистрируем webhook callback для указанного пути (POST от Telegram)
+app.post(WEBHOOK_PATH, bot.webhookCallback(WEBHOOK_PATH));
 
 // Простая защита API по ключу (опционально)
 function requireApiKey(req: express.Request, res: express.Response, next: express.NextFunction): void {
@@ -75,7 +95,14 @@ app.get('/bot-api/orders', requireApiKey, async (req: express.Request, res: expr
       distributorsMap = Array.isArray(distributors)
         ? distributors.reduce((acc: Record<string, any>, d: any) => {
             const id = String(d?.id ?? d?.distributorId ?? '');
-            if (id) acc[id] = d;
+            if (id) {
+              acc[id] = {
+                id,
+                name: d?.name,
+                contractor: d?.contractor,
+                updateTime: d?.updateTime,
+              };
+            }
             return acc;
           }, {})
         : {};

@@ -7,6 +7,24 @@
 
 
 ## Getting started
+### Environment variables
+
+Основные переменные окружения для интеграции с ABCP и кэширования:
+
+- `ABCP_HOST`: хост внешнего API
+- `ABCP_USER`: логин
+- `ABCP_PASS`: пароль
+- `DISTRIBUTORS_TTL_SECONDS` (опционально): TTL для кэша дистрибьюторов в секундах (по умолчанию `300`).
+
+Пример:
+
+```
+ABCP_HOST=example.abcp.ru
+ABCP_USER=my_login
+ABCP_PASS=my_password
+DISTRIBUTORS_TTL_SECONDS=300
+```
+
 
 To make it easy for you to get started with GitLab, here's a list of recommended next steps.
 
