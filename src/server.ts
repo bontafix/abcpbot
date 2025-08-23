@@ -1,8 +1,7 @@
 import express from 'express';
 import { bot } from './bot';
 import * as dotenv from 'dotenv';
-import { OrderRepository } from './repositories/orderRepository';
-import { getDistributors } from './abcp';
+import { registerBotApiRoutes } from './web/botApiRoutes';
 
 dotenv.config();
 
@@ -80,128 +79,8 @@ function normalizeStatus(input: string): 'new' | 'in_progress' | 'rejected' | 'c
   return (ALLOWED_STATUS as readonly string[]).includes(key) ? (key as any) : null;
 }
 
-// GET /api/orders?telegramId=&since=ISO&page=1&pageSize=100
-app.get('/bot-api/orders', requireApiKey, async (req: express.Request, res: express.Response): Promise<void> => {
-  try {
-    const telegramId = (req.query.telegramId as string) || '';
-    const sinceStr = (req.query.since as string) || '';
-    const page = Math.max(1, Number(req.query.page || 1));
-    const pageSize = Math.min(1000, Math.max(1, Number(req.query.pageSize || 100)));
-    const sinceDate = sinceStr ? new Date(sinceStr) : undefined;
-    const since = sinceDate && !isNaN(sinceDate.getTime()) ? sinceDate : undefined;
-   
-    const rows = await OrderRepository.list({
-      telegramId: telegramId || undefined,
-      since,
-      page,
-      pageSize,
-    });
-
-    // Получим дистрибьюторов и преобразуем в map по id
-    let distributorsMap: Record<string, any> = {};
-    try {
-      const distributors: any[] = await getDistributors();
-      distributorsMap = Array.isArray(distributors)
-        ? distributors.reduce((acc: Record<string, any>, d: any) => {
-            const id = String(d?.id ?? d?.distributorId ?? '');
-            if (id) {
-              acc[id] = {
-                id,
-                name: d?.name,
-                contractor: d?.contractor,
-                updateTime: d?.updateTime,
-              };
-            }
-            return acc;
-          }, {})
-        : {};
-    } catch (e) {
-      distributorsMap = {};
-    }
-
-    res.json({ page, pageSize, count: rows.length, orders: rows, distributorsMap });
-    return;
-  } catch (e: any) {
-    console.error('GET /api/orders error:', e?.message || e);
-    res.status(500).json({ error: 'internal_error' });
-    return;
-  }
-});
-
-// POST /bot-api/orders/status { telegramId: string, orderId: number, status: string }
-app.post('/bot-api/orders/status', requireApiKey, async (req: express.Request, res: express.Response): Promise<void> => {
-  try {
-    const telegramId = String(req.body?.telegramId || '').trim();
-    const orderIdNum = Number(req.body?.orderId);
-    const statusInput = String(req.body?.status || '').trim();
-
-    if (!telegramId) {
-      res.status(400).json({ error: 'telegramId_required' });
-      return;
-    }
-    if (!Number.isFinite(orderIdNum) || orderIdNum <= 0) {
-      res.status(400).json({ error: 'orderId_invalid' });
-      return;
-    }
-    if (!statusInput) {
-      res.status(400).json({ error: 'status_required' });
-      return;
-    }
-
-    const normalizedStatus = normalizeStatus(statusInput);
-    if (!normalizedStatus) {
-      res.status(400).json({ error: 'status_invalid', allowed: ['new','in_progress','rejected','completed','reserved'] });
-      return;
-    }
-
-    const result = await OrderRepository.updateStatusByTelegram(orderIdNum, telegramId, normalizedStatus);
-    if (!result?.success) {
-      res.status(404).json(result);
-      return;
-    }
-    res.json(result);
-    return;
-  } catch (e: any) {
-    console.error('POST /api/orders/status error:', e?.message || e);
-    res.status(500).json({ error: 'internal_error' });
-    return;
-  }
-});
-
-// POST /bot-api/admin/orders/status { orderId: number, status: string }
-app.post('/bot-api/admin/orders/status', requireApiKey, async (req: express.Request, res: express.Response): Promise<void> => {
-  try {
-    const orderIdNum = Number(req.body?.orderId);
-    const statusInput = String(req.body?.status || '').trim();
-
-    if (!Number.isFinite(orderIdNum) || orderIdNum <= 0) {
-      res.status(400).json({ error: 'orderId_invalid' });
-      return;
-    }
-    if (!statusInput) {
-      res.status(400).json({ error: 'status_required' });
-      return;
-    }
-
-    const normalizedStatus = normalizeStatus(statusInput);
-    if (!normalizedStatus) {
-      res.status(400).json({ error: 'status_invalid', allowed: ['new','in_progress','rejected','completed','reserved'] });
-      return;
-    }
-
-    const result = await OrderRepository.updateStatus(orderIdNum, normalizedStatus);
-    if (!result?.success) {
-      res.status(400).json(result);
-      return;
-    }
-    res.json(result);
-    return;
-  } catch (e: any) {
-    console.error('POST /bot-api/admin/orders/status error:', e?.message || e);
-    res.status(500).json({ error: 'internal_error' });
-    return;
-  }
-});
+// Регистрируем bot-api маршруты из отдельного модуля
+registerBotApiRoutes(app);
 
 // Добавляем health check endpoint
 app.get('/health', (req, res) => {

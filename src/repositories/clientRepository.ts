@@ -8,6 +8,7 @@ interface Client {
   telegram_id: string;
   phone: string;
   name: string;
+  address?: string | null;
   datetime: Date;
 }
 
@@ -35,11 +36,12 @@ export const ClientRepository = {
     }
   },
 
-  async update(telegramId: string, data: Partial<Pick<Client, 'name' | 'phone'>>) {
+  async update(telegramId: string, data: Partial<Pick<Client, 'name' | 'phone' | 'address'>>) {
     try {
       const updateData: any = {};
       if (typeof data.name === 'string' && data.name.trim() !== '') updateData.name = data.name.trim();
       if (typeof data.phone === 'string' && data.phone.trim() !== '') updateData.phone = data.phone.trim();
+      if (typeof data.address === 'string' && data.address.trim() !== '') updateData.address = data.address.trim();
       if (Object.keys(updateData).length === 0) {
         return { success: false, message: 'Нет данных для обновления.' };
       }

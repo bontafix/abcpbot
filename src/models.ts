@@ -30,6 +30,7 @@ export const client = pgTable('client', {
   telegram_id: varchar('telegram_id', { length: 50 }).notNull(),
   phone: varchar('phone', { length: 20 }).notNull(),
   name: varchar('name', { length: 255 }).notNull(),
+  address: text('address'),
   datetime: timestamp('created_at')
     .notNull()
     .default(sql`now()`), // Устанавливает текущее время при создании записи

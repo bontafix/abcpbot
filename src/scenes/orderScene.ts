@@ -77,7 +77,7 @@ const orderStep2 = async (ctx: AnyContext) => {
       reply_markup: {
         inline_keyboard: [
           [{ text: 'Самовывоз', callback_data: 'delivery:pickup' }],
-          [{ text: 'Доставка', callback_data: 'delivery:delivery' }],
+          [{ text: 'Отправка Сдек', callback_data: 'delivery:delivery' }],
         ],
       },
     });
@@ -137,16 +137,73 @@ const orderStep3 = async (ctx: AnyContext) => {
         // @ts-ignore
         return ctx.scene.enter('registration', { afterScene: 'order', afterState: { brand: s.brand, number: s.number, availability: s.availability } });
       }
-      await ctx.reply('Введите адрес доставки:');
+      const savedAddress = Array.isArray(client) ? String(client[0]?.address || '').trim() : '';
+      if (savedAddress) {
+        await ctx.reply(
+          `Сохранённый адрес:
+${savedAddress}
+Использовать его или ввести новый?`,
+          {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: 'Использовать сохранённый', callback_data: 'address_use_saved' },
+                  { text: 'Изменить адрес', callback_data: 'address_change' },
+                ],
+              ],
+            },
+          }
+        );
+      } else {
+        await ctx.reply('Введите адрес пункта Сдек:');
+      }
       return ctx.wizard.next();
     }
   }
 
-  await ctx.reply('Выберите вариант: Самовывоз или Доставка.');
+  await ctx.reply('Выберите вариант: Самовывоз или Отправка Сдек.');
 };
 
 const orderStep4 = async (ctx: AnyContext) => {
   const s = ctx.wizard.state as OrderWizardState;
+
+  if (ctx.callbackQuery && 'data' in ctx.callbackQuery) {
+    const data = (ctx.callbackQuery as any).data as string;
+    await ctx.answerCbQuery();
+    if (data === 'address_use_saved') {
+      // Получаем сохранённый адрес и сразу оформляем
+      const telegramId = ctx.from?.id ? String(ctx.from.id) : '';
+      const { ClientRepository } = await import('../repositories/clientRepository');
+      const client = telegramId ? await ClientRepository.get(telegramId) : [];
+      const savedAddress = Array.isArray(client) ? String(client[0]?.address || '').trim() : '';
+      if (!savedAddress) {
+        await ctx.reply('Сохранённый адрес не найден. Введите адрес текстом:');
+        return; // остаёмся на шаге 4 и ждём текст
+      }
+      s.address = savedAddress;
+
+      try {
+        const telegramId2 = ctx.from?.id ? String(ctx.from.id) : '';
+        if (telegramId2 && s.number && s.title && s.quantity && typeof s.price === 'number') {
+          const { OrderRepository } = await import('../repositories/orderRepository');
+          const { ClientRepository } = await import('../repositories/clientRepository');
+          const client2 = await ClientRepository.get(telegramId2);
+          const name = Array.isArray(client2) && client2[0]?.name ? String(client2[0].name) : '';
+          const phone = Array.isArray(client2) && client2[0]?.phone ? String(client2[0].phone) : '';
+          await OrderRepository.create(telegramId2, [
+            { number: String(s.number), title: String(s.title), count: Number(s.quantity), price: Number(s.price), brand: String(s.brand || ''), distributorId: String(s.distributorId || ''), supplierCode: String(s.supplierCode || ''), lastUpdateTime: String(s.lastUpdateTime || '') }
+          ], `Доставка: пункт Сдек:${savedAddress}`, name, phone);
+        }
+      } catch (e) { /* noop */ }
+
+      await ctx.reply(`Заказ принят:\nБрэнд: ${s.brand}\nАртикул: ${s.number}\nКоличество: ${s.quantity}\nДоставка: Адрес\n${s.address}`);
+      return ctx.scene.leave();
+    }
+    if (data === 'address_change') {
+      await ctx.reply('Введите новый адрес пункта Сдек:');
+      return; // остаёмся на шаге 4, ждём текст
+    }
+  }
 
   if (ctx.message && 'text' in ctx.message) {
     const address = (ctx.message.text || '').trim();
@@ -167,7 +224,10 @@ const orderStep4 = async (ctx: AnyContext) => {
         const phone = Array.isArray(client) && client[0]?.phone ? String(client[0].phone) : '';
         await OrderRepository.create(telegramId, [
           { number: String(s.number), title: String(s.title), count: Number(s.quantity), price: Number(s.price), brand: String(s.brand || ''), distributorId: String(s.distributorId || ''), supplierCode: String(s.supplierCode || ''), lastUpdateTime: String(s.lastUpdateTime || '') }
-        ], `Доставка: Адрес ${address}`, name, phone);
+        ], `Доставка: пункт Сдек:${address}`, name, phone);
+
+        // Сохраним адрес для будущих заказов
+        await ClientRepository.update(telegramId, { address });
       }
     } catch (e) { /* noop */ }
 

@@ -15,8 +15,12 @@ const profileEnter = async (ctx: Scenes.WizardContext) => {
   }
   const info = client[0];
   await ctx.reply(
-    `Ваш профиль:\nИмя: ${info.name}\nТелефон: ${info.phone}`,
-    Markup.keyboard([[ 'Редактировать', 'Удалить' ], [ 'Назад' ]]).resize()
+    `Ваш профиль:\nИмя: ${info.name}\nТелефон: ${info.phone}\nАдрес Сдек: ${String(info.address || '').trim() || 'не указан'}`,
+    Markup.keyboard([
+      [ 'Редактировать', 'Удалить' ],
+      [ 'Изменить Адрес отправки Сдек' ],
+      [ 'Назад' ]
+    ]).resize()
   );
   return ctx.wizard.next();
 };
@@ -44,8 +48,19 @@ const profileHandle = async (ctx: Scenes.WizardContext) => {
   }
 
   if (text === 'Редактировать') {
-    await ctx.reply('Отправьте новое имя, затем номер телефона через перенос строки.\nНапример:\nИван Иванов\n+79990000000');
+    await ctx.reply(
+      'Отправьте новое имя, затем номер телефона через перенос строки.\nНапример:\nИван Иванов\n+79990000000',
+      Markup.keyboard([[ 'Отмена' ]]).resize()
+    );
     return ctx.wizard.next();
+  }
+
+  if (text === 'Изменить Адрес отправки Сдек') {
+    await ctx.reply('Отправьте новый адрес пункта Сдек:', Markup.keyboard([[ 'Отмена' ]]).resize());
+    // Переходим на шаг редактирования адреса (см. список шагов внизу)
+    // @ts-ignore
+    ctx.wizard.selectStep(5);
+    return;
   }
 
   if (text === 'Назад') {
@@ -82,7 +97,14 @@ const profileDeleteConfirm = async (ctx: Scenes.WizardContext) => {
 
 const profileEdit = async (ctx: Scenes.WizardContext) => {
   if (!ctx.message || !('text' in ctx.message)) return;
-  const payload = (ctx.message.text || '').split('\n').map((s) => s.trim()).filter(Boolean);
+  const rawText = (ctx.message.text || '').trim();
+
+  if (rawText === 'Отмена' || rawText === 'Назад') {
+    await ctx.reply('Изменение отменено.', await getMainMenuUser());
+    return ctx.scene.leave();
+  }
+
+  const payload = rawText.split('\n').map((s) => s.trim()).filter(Boolean);
 
   if (payload.length < 2) {
     await ctx.reply(
@@ -133,7 +155,32 @@ const profileScene = new Scenes.WizardScene<Scenes.WizardContext>(
   profileHandle,
   profileEdit,
   profileEditConfirm,
-  profileDeleteConfirm
+  profileDeleteConfirm,
+  // Шаг 5: редактирование адреса Сдек
+  async (ctx: Scenes.WizardContext) => {
+    if (!ctx.message || !('text' in ctx.message)) return;
+    const text = (ctx.message.text || '').trim();
+    const telegramId = ctx.from?.id ? String(ctx.from.id) : '';
+
+    if (text === 'Отмена' || text === 'Назад') {
+      await ctx.reply('Изменение адреса отменено.', await getMainMenuUser());
+      return ctx.scene.leave();
+    }
+
+    if (!telegramId) {
+      await ctx.reply('Не удалось определить Telegram ID.');
+      return ctx.scene.leave();
+    }
+
+    if (!text) {
+      await ctx.reply('Пожалуйста, отправьте адрес текстом или нажмите Отмена.', Markup.keyboard([[ 'Отмена' ]]).resize());
+      return; // остаёмся на текущем шаге
+    }
+
+    const result = await ClientRepository.update(telegramId, { address: text });
+    await ctx.reply(result.message, await getMainMenuUser());
+    return ctx.scene.leave();
+  }
 );
 
 export default profileScene;

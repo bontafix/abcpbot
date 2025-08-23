@@ -248,8 +248,8 @@ const step3 = async (ctx: MyContext) => {
     const resultSearchArticles = await searchArticles(
       selectedItem.number, selectedItem.brand
     );
-    console.log(resultSearchArticles);
-    console.log(`resultSearchArticles >>>> =====================`);
+    // console.log(resultSearchArticles);
+    // console.log(`resultSearchArticles >>>> =====================`);
     const articles = (resultSearchArticles as any[]) || [];
     if (articles.length === 0) {
       await ctx.reply('Не найдено.');

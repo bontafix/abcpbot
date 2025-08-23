@@ -1,6 +1,6 @@
 import { db } from '../db';
 import { order } from '../models';
-import { and, eq, gte } from 'drizzle-orm';
+import { and, eq, gte, desc } from 'drizzle-orm';
 import { canTransitionStatus, canDeleteByStatus, isKnownStatus, canTransitionStatusAdmin } from '../utils/orderStatusRules';
 import { DatabaseError } from 'pg';
 
@@ -90,6 +90,7 @@ export const OrderRepository = {
       .select()
       .from(order)
       .where(whereClause as any)
+      .orderBy(desc(order.id))
       .limit(pageSize)
       .offset(offset);
 
@@ -98,7 +99,11 @@ export const OrderRepository = {
 
   async getByTelegramId(telegramId: string): Promise<OrderRow[] | { success: boolean; message: string }> {
     try {
-      const rows = await db.select().from(order).where(eq(order.telegram_id, telegramId));
+      const rows = await db
+        .select()
+        .from(order)
+        .where(eq(order.telegram_id, telegramId))
+        .orderBy(desc(order.id));
       return rows as unknown as OrderRow[];
     } catch (error: any) {
       console.error('Ошибка при получении заказов:', error?.message || '');
