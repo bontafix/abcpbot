@@ -19,9 +19,7 @@ export async function getMainMenuUser() {
 
   return Markup.keyboard([
     [
-      'Поиск',
-      'Профиль',
-      'Заказы',
+      'Поиск', 'Профиль', 'Мои заказы',
     ]
   ]).resize();
 }

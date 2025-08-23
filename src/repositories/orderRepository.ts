@@ -1,6 +1,7 @@
 import { db } from '../db';
 import { order } from '../models';
 import { and, eq, gte } from 'drizzle-orm';
+import { canTransitionStatus, canDeleteByStatus, isKnownStatus, canTransitionStatusAdmin } from '../utils/orderStatusRules';
 import { DatabaseError } from 'pg';
 
 export interface OrderItem {
@@ -41,6 +42,39 @@ export const OrderRepository = {
     }
   },
 
+  async updateStatusByTelegram(orderId: number, telegramId: string, status: string) {
+    try {
+      // Сначала получим текущий статус заказа для проверки правил
+      const rows = await db.select().from(order).where(and(eq(order.id, orderId), eq(order.telegram_id, telegramId)));
+      if (!rows || rows.length === 0) {
+        return { success: false, message: 'Заказ не найден или нет доступа.' };
+      }
+      const current = String((rows[0] as any).status || '');
+      const target = String(status || '');
+      if (!isKnownStatus(target)) {
+        return { success: false, message: 'Недопустимый статус.' };
+      }
+      if (!canTransitionStatus(current, target)) {
+        return { success: false, message: 'Запрещено изменять статус на выбранный.' };
+      }
+
+      const updated = await db
+        .update(order)
+        .set({ status: target, status_datetime: new Date() })
+        .where(and(eq(order.id, orderId), eq(order.telegram_id, telegramId)))
+        .returning({ id: order.id });
+
+      if (!updated || updated.length === 0) {
+        return { success: false, message: 'Заказ не найден или нет доступа.' };
+      }
+
+      return { success: true, message: 'Статус заказа обновлён.' };
+    } catch (error) {
+      console.error('Ошибка при обновлении статуса заказа (с проверкой telegramId):', error);
+      return { success: false, message: 'Не удалось обновить статус заказа.' };
+    }
+  },
+
   async list(params: { telegramId?: string; since?: Date; page?: number; pageSize?: number }): Promise<OrderRow[]> {
     const page = Math.max(1, Number(params.page || 1));
     const pageSize = Math.min(1000, Math.max(1, Number(params.pageSize || 100)));
@@ -74,9 +108,22 @@ export const OrderRepository = {
 
   async updateStatus(orderId: number, status: string) {
     try {
+      // Админский апдейт без проверки telegramId, но с админ-правилами переходов
+      const rows = await db.select().from(order).where(eq(order.id, orderId));
+      if (!rows || rows.length === 0) {
+        return { success: false, message: 'Заказ не найден.' };
+      }
+      const current = String((rows[0] as any).status || '');
+      const target = String(status || '');
+      if (!isKnownStatus(target)) {
+        return { success: false, message: 'Недопустимый статус.' };
+      }
+      if (!canTransitionStatusAdmin(current, target)) {
+        return { success: false, message: 'Запрещён переход статуса для администратора.' };
+      }
       await db
         .update(order)
-        .set({ status, status_datetime: new Date() })
+        .set({ status: target, status_datetime: new Date() })
         .where(eq(order.id, orderId));
       return { success: true, message: 'Статус заказа обновлён.' };
     } catch (error) {
@@ -87,9 +134,15 @@ export const OrderRepository = {
 
   async deleteById(orderId: number, telegramId: string) {
     try {
-      // Удаляем только заказ текущего пользователя
-      const { and } = await import('drizzle-orm');
-      // @ts-ignore drizzle and() typing workaround for dynamic import
+      // Проверим статус: удалять можно только заказы в статусе 'rejected'
+      const rows = await db.select().from(order).where(and(eq(order.id, orderId), eq(order.telegram_id, telegramId)));
+      if (!rows || rows.length === 0) {
+        return { success: false, message: 'Заказ не найден или нет доступа.' };
+      }
+      const current = String((rows[0] as any).status || '');
+      if (!canDeleteByStatus(current)) {
+        return { success: false, message: 'Удаление доступно только для отклонённых заказов.' };
+      }
       await db.delete(order).where(and(eq(order.id, orderId), eq(order.telegram_id, telegramId)));
       return { success: true, message: `Заказ #${orderId} удалён.` };
     } catch (error) {

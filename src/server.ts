@@ -71,6 +71,15 @@ function requireApiKey(req: express.Request, res: express.Response, next: expres
   next();
 }
 
+// Допустимые статусы (только англ коды)
+const ALLOWED_STATUS: Array<'new' | 'in_progress' | 'rejected' | 'completed' | 'reserved'> = [
+  'new', 'in_progress', 'rejected', 'completed', 'reserved'
+];
+function normalizeStatus(input: string): 'new' | 'in_progress' | 'rejected' | 'completed' | 'reserved' | null {
+  const key = String(input || '').trim().toLowerCase();
+  return (ALLOWED_STATUS as readonly string[]).includes(key) ? (key as any) : null;
+}
+
 // GET /api/orders?telegramId=&since=ISO&page=1&pageSize=100
 app.get('/bot-api/orders', requireApiKey, async (req: express.Request, res: express.Response): Promise<void> => {
   try {
@@ -114,6 +123,81 @@ app.get('/bot-api/orders', requireApiKey, async (req: express.Request, res: expr
     return;
   } catch (e: any) {
     console.error('GET /api/orders error:', e?.message || e);
+    res.status(500).json({ error: 'internal_error' });
+    return;
+  }
+});
+
+// POST /bot-api/orders/status { telegramId: string, orderId: number, status: string }
+app.post('/bot-api/orders/status', requireApiKey, async (req: express.Request, res: express.Response): Promise<void> => {
+  try {
+    const telegramId = String(req.body?.telegramId || '').trim();
+    const orderIdNum = Number(req.body?.orderId);
+    const statusInput = String(req.body?.status || '').trim();
+
+    if (!telegramId) {
+      res.status(400).json({ error: 'telegramId_required' });
+      return;
+    }
+    if (!Number.isFinite(orderIdNum) || orderIdNum <= 0) {
+      res.status(400).json({ error: 'orderId_invalid' });
+      return;
+    }
+    if (!statusInput) {
+      res.status(400).json({ error: 'status_required' });
+      return;
+    }
+
+    const normalizedStatus = normalizeStatus(statusInput);
+    if (!normalizedStatus) {
+      res.status(400).json({ error: 'status_invalid', allowed: ['new','in_progress','rejected','completed','reserved'] });
+      return;
+    }
+
+    const result = await OrderRepository.updateStatusByTelegram(orderIdNum, telegramId, normalizedStatus);
+    if (!result?.success) {
+      res.status(404).json(result);
+      return;
+    }
+    res.json(result);
+    return;
+  } catch (e: any) {
+    console.error('POST /api/orders/status error:', e?.message || e);
+    res.status(500).json({ error: 'internal_error' });
+    return;
+  }
+});
+
+// POST /bot-api/admin/orders/status { orderId: number, status: string }
+app.post('/bot-api/admin/orders/status', requireApiKey, async (req: express.Request, res: express.Response): Promise<void> => {
+  try {
+    const orderIdNum = Number(req.body?.orderId);
+    const statusInput = String(req.body?.status || '').trim();
+
+    if (!Number.isFinite(orderIdNum) || orderIdNum <= 0) {
+      res.status(400).json({ error: 'orderId_invalid' });
+      return;
+    }
+    if (!statusInput) {
+      res.status(400).json({ error: 'status_required' });
+      return;
+    }
+
+    const normalizedStatus = normalizeStatus(statusInput);
+    if (!normalizedStatus) {
+      res.status(400).json({ error: 'status_invalid', allowed: ['new','in_progress','rejected','completed','reserved'] });
+      return;
+    }
+
+    const result = await OrderRepository.updateStatus(orderIdNum, normalizedStatus);
+    if (!result?.success) {
+      res.status(400).json(result);
+      return;
+    }
+    res.json(result);
+    return;
+  } catch (e: any) {
+    console.error('POST /bot-api/admin/orders/status error:', e?.message || e);
     res.status(500).json({ error: 'internal_error' });
     return;
   }
