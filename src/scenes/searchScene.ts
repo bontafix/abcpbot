@@ -3,17 +3,20 @@ import * as dotenv from 'dotenv';
 import { UserRepository } from '../repositories/userRepository';
 import { searchBrands, searchArticles } from '../abcp';
 
-const ABCP_HOST = process.env.ABCP_HOST;
-const ABCP_USER = process.env.ABCP_USER;
-const ABCP_PASS = process.env.ABCP_PASS;
-
 // Интерфейс состояния мастера
 interface SearchWizardState {
   number?: string;
   results?: SearchResultMap;
   selectedBrandNumber?: string;
   analogArticles?: any[]; // Добавляем хранение аналогов
-  itemDetails?: Record<string, { title: string; price: number }>; // Детали позиции для оформления заказа
+  itemDetails?: Record<string, {
+    title: string;
+    price: number;
+    distributorId: string;
+    brand: string;
+    supplierCode?: string;
+    lastUpdateTime?: string;
+  }>; // Детали позиции для оформления заказа
 }
 
 // Интерфейс WizardSession
@@ -29,41 +32,49 @@ const step1 = async (ctx: MyContext) => {
   // Если пришли из отмены оформления с данными, сразу покажем предложения без запроса ввода
   const state = ctx.wizard.state as SearchWizardState;
   const resume = (ctx.scene.state || {}) as { resumeBrand?: string; resumeNumber?: string };
-  if (resume.resumeNumber && resume.resumeBrand && ABCP_HOST && ABCP_USER && ABCP_PASS) {
+  if (resume.resumeNumber && resume.resumeBrand) {
     state.number = resume.resumeNumber;
     const resultSearchArticles = await searchArticles(
-      ABCP_HOST, ABCP_USER, ABCP_PASS,
       resume.resumeNumber, resume.resumeBrand
     );
 
     const articles = (resultSearchArticles as any[]) || [];
+    console.log(resultSearchArticles);
+    console.log(`resultSearchArticles =====================`);
     if (articles.length === 0) {
       await ctx.reply('Не найдено. Введите код запчасти:');
       return ctx.wizard.next();
     }
 
     articles.sort((a, b) => Number(Boolean(a.isAnalog)) - Number(Boolean(b.isAnalog)));
+
     const analogArticles = articles.filter(a => a.isAnalog);
     const nonAnalogArticles = articles.filter(a => !a.isAnalog);
 
     // Сохраним аналоги и детали
     state.analogArticles = analogArticles;
-    const detailsMap: Record<string, { title: string; price: number }> = (state.itemDetails ||= {});
+    const detailsMap: Record<string, { 
+      title: string; 
+      price: number; 
+      distributorId: string;
+      brand: string;
+      supplierCode?: string;
+      lastUpdateTime?: string;
+    }> = (state.itemDetails ||= {} as any);
     for (const a of articles) {
       const key2 = `${String(a.brand)}:${String(a.number)}`;
-      detailsMap[key2] = { title: String(a.description ?? '-'), price: Number(a.price ?? 0) };
+      detailsMap[key2] = { 
+        title: String(a.description ?? '-'), 
+        price: Number(a.price ?? 0),
+        distributorId: String((a as any).distributorId ?? ''),
+        brand: String(a.brand ?? ''),
+        supplierCode: String((a as any).supplierCode ?? ''),
+        lastUpdateTime: String((a as any).lastUpdateTime ?? '')
+      };
     }
 
     for (const a of nonAnalogArticles) {
-      const md = `*Брэнд*: ${String(a.brand)}\n` +
-        `*Артикул*: ${String(a.number)}\n` +
-        `*Описание*: ${String(a.description ?? '-')}\n` +
-        `*Доступно*: ${String(a.availability ?? '-')}\n` +
-        `*Срок*: ${String(a.deliveryProbability === 0 ? 'На складе' : a.descriptionOfDeliveryProbability)}\n` +
-        `*Цена*: ${formatPrice(a.price)}\n` +
-        `*Вес*: ${formatPrice(a.weight)}`;
-
-      await ctx.reply(md, {
+      await ctx.reply(renderPublicItem(a), {
         parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [[
@@ -156,9 +167,17 @@ const step2 = async (ctx: MyContext) => {
     const state = ctx.wizard.state as SearchWizardState;
     state.number = ctx.message.text;
     console.log(state.number);
-    if (ABCP_HOST && ABCP_USER && ABCP_PASS) {
-      const resultSearch = await searchBrands(ABCP_HOST, ABCP_USER, ABCP_PASS, state.number);
+    {
+      const resultSearch = await searchBrands(state.number);
       state.results = resultSearch as SearchResultMap;
+      // console.log('results saved', {
+      //   query: state.number,
+      //   count: Object.keys(state.results || {}).length,
+      //   sample: Object.entries(state.results || {})[0]
+      // });
+
+      console.log(state.results);
+      console.log(`state.results =====================`);
 
       const entries_ = Object.entries(state.results || {}) as [string, SearchResultItem][];
       console.log(entries_);
@@ -192,8 +211,6 @@ const step2 = async (ctx: MyContext) => {
         // Возвращаемся к вводу
         return ctx.scene.reenter();
       }
-    } else {
-      await ctx.reply('Ошибка доступа к Abcp API. Попробуйте позже.');
     }
     return ctx.wizard.next();
   }
@@ -243,15 +260,26 @@ const step3 = async (ctx: MyContext) => {
       const availability = availabilityRaw ? Number(availabilityRaw) : undefined;
       const key2 = `${brand}:${number}`;
       const details = (state.itemDetails || {})[key2] || { title: '', price: 0 };
-      await ctx.scene.enter('order' as any, { brand, number, availability, title: details.title, price: details.price });
+      await ctx.scene.enter('order' as any, { 
+        brand, 
+        number, 
+        availability, 
+        title: details.title, 
+        price: details.price,
+        distributorId: (details as any).distributorId || '',
+        supplierCode: (details as any).supplierCode || '',
+        lastUpdateTime: (details as any).lastUpdateTime || ''
+      });
       return;
     }
 
     // Обработка выбора бренда/позиции из step2
     const key = data;
+    console.log('cb key', key);
+    console.log('results present', !!state.results, 'count', Object.keys(state.results || {}).length);
     const selectedItem = state.results?.[key];
 
-    if (!selectedItem?.number || !selectedItem?.brand || !ABCP_HOST || !ABCP_USER || !ABCP_PASS) {
+    if (!selectedItem?.number || !selectedItem?.brand) {
       await ctx.answerCbQuery('Нет данных для запроса', { show_alert: true });
       await ctx.reply('Сделать новый поиск?', {
         reply_markup: { inline_keyboard: [[{ text: 'Новый поиск', callback_data: 'restart_search' }]] }
@@ -260,10 +288,10 @@ const step3 = async (ctx: MyContext) => {
     }
 
     const resultSearchArticles = await searchArticles(
-      ABCP_HOST, ABCP_USER, ABCP_PASS,
       selectedItem.number, selectedItem.brand
     );
-
+    console.log(resultSearchArticles);
+    console.log(`resultSearchArticles >>>> =====================`);
     const articles = (resultSearchArticles as any[]) || [];
     if (articles.length === 0) {
       await ctx.reply('Не найдено.');
@@ -278,13 +306,24 @@ const step3 = async (ctx: MyContext) => {
     const analogArticles = articles.filter(a => a.isAnalog);
     const nonAnalogArticles = articles.filter(a => !a.isAnalog);
 
-    // Сохраним детали (название/цена) для последующего оформления заказа
-    const detailsMap: Record<string, { title: string; price: number }> = (state.itemDetails ||= {});
+    // Сохраним детали (название/цена/бренд/поставщик/время обновления) для последующего оформления заказа
+    const detailsMap: Record<string, {
+      title: string;
+      price: number;
+      distributorId: string;
+      brand: string;
+      supplierCode?: string;
+      lastUpdateTime?: string;
+    }> = (state.itemDetails ||= {} as any);
     for (const a of articles) {
       const key2 = `${String(a.brand)}:${String(a.number)}`;
       detailsMap[key2] = {
         title: String(a.description ?? '-'),
         price: Number(a.price ?? 0),
+        distributorId: String((a as any).distributorId ?? ''),
+        brand: String(a.brand ?? ''),
+        supplierCode: String((a as any).supplierCode ?? ''),
+        lastUpdateTime: String((a as any).lastUpdateTime ?? ''),
       };
     }
 
@@ -293,15 +332,7 @@ const step3 = async (ctx: MyContext) => {
 
     // Показываем неаналогичные товары
     for (const a of nonAnalogArticles) {
-      const md = `*Брэнд*: ${String(a.brand)}\n` +
-        `*Артикул*: ${String(a.number)}\n` +
-        `*Описание*: ${String(a.description ?? '-')}\n` +
-        `*Доступно*: ${String(a.availability ?? '-')}\n` +
-        `*Срок*: ${String(a.deliveryProbability === 0 ? 'На складе' : a.descriptionOfDeliveryProbability)}\n` +
-        `*Цена*: ${formatPrice(a.price)}\n` +
-        `*Вес*: ${formatPrice(a.weight)}`;
-
-      await ctx.reply(md, {
+      await ctx.reply(renderPublicItem(a), {
         parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [[
@@ -347,15 +378,7 @@ async function showAnalogArticles(ctx: MyContext) {
 
   // Показываем аналогичные товары
   for (const a of analogArticles) {
-    const md = `*Брэнд*: ${String(a.brand)}\n` +
-      `*Артикул*: ${String(a.number)}\n` +
-      `*Описание*: ${String(a.description ?? '-')}\n` +
-      `*Доступно*: ${String(a.availability ?? '-')}\n` +
-      `*Срок*: ${String(a.deliveryProbability === 0 ? 'На складе' : a.descriptionOfDeliveryProbability)}\n` +
-      `*Цена*: ${formatPrice(a.price)}\n` +
-      `*Вес*: ${formatPrice(a.weight)}`;
-
-    await ctx.reply(md, {
+    await ctx.reply(renderPublicItem(a), {
       parse_mode: 'Markdown',
       reply_markup: {
         inline_keyboard: [[
@@ -400,3 +423,14 @@ function formatPrice(value: unknown): string {
 }
 
 export default searchWizard;
+
+// Публичный шаблон показа позиции (строго белый список полей)
+function renderPublicItem(a: any): string {
+  return `*Брэнд*: ${String(a.brand)}\n` +
+    `*Артикул*: ${String(a.number)}\n` +
+    `*Описание*: ${String(a.description ?? '-')}\n` +
+    `*Доступно*: ${String(a.availability ?? '-')}\n` +
+    `*Срок*: ${String(a.deliveryProbability === 0 ? 'На складе' : a.descriptionOfDeliveryProbability)}\n` +
+    `*Цена*: ${formatPrice(a.price)}\n` +
+    `*Вес*: ${String(a.weight)}`;
+}

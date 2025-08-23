@@ -148,13 +148,6 @@ bot.command('ver', async (ctx) => {
   }
 })();
 
-bot.telegram.deleteWebhook().then(() => {
-  bot.launch().then(() => {
-    const TEST_CHAT_ID = '102877129';
-    bot.telegram.sendMessage(TEST_CHAT_ID, '/start');
-  });
-});
-
 
 
 export { bot };

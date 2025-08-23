@@ -12,17 +12,23 @@ interface OrderWizardState {
   availability?: number;
   title?: string;
   price?: number;
+  distributorId?: string;
+  supplierCode?: string;
+  lastUpdateTime?: string;
 }
 
 const orderStep1 = async (ctx: AnyContext) => {
   const s = ctx.wizard.state as OrderWizardState;
-  const sceneState = (ctx.scene.state || {}) as { brand?: string; number?: string; availability?: number; title?: string; price?: number };
+  const sceneState = (ctx.scene.state || {}) as { brand?: string; number?: string; availability?: number; title?: string; price?: number; distributorId?: string; supplierCode?: string; lastUpdateTime?: string };
   // Инициализируем из переданного state при enter
   s.brand = sceneState.brand;
   s.number = sceneState.number;
   s.availability = sceneState.availability;
   s.title = sceneState.title;
   s.price = sceneState.price;
+  s.distributorId = sceneState.distributorId;
+  s.supplierCode = sceneState.supplierCode;
+  s.lastUpdateTime = sceneState.lastUpdateTime;
 
   await ctx.reply(
     `Оформление заказа\nБрэнд: ${s.brand ?? '-'}\nАртикул: ${s.number ?? '-'}\nДоступно: ${s.availability ?? '-'}\n\nВведите количество:`,
@@ -106,7 +112,7 @@ const orderStep3 = async (ctx: AnyContext) => {
           const name = Array.isArray(client) && client[0]?.name ? String(client[0].name) : '';
           const phone = Array.isArray(client) && client[0]?.phone ? String(client[0].phone) : '';
           await OrderRepository.create(telegramId, [
-            { number: String(s.number), title: String(s.title), count: Number(s.quantity), price: Number(s.price) }
+            { number: String(s.number), title: String(s.title), count: Number(s.quantity), price: Number(s.price), brand: String(s.brand || ''), distributorId: String(s.distributorId || ''), supplierCode: String(s.supplierCode || ''), lastUpdateTime: String(s.lastUpdateTime || '') }
           ], `Доставка: Самовывоз`, name, phone);
         }
       } catch (e) { /* noop */ }
@@ -156,7 +162,7 @@ const orderStep4 = async (ctx: AnyContext) => {
         const name = Array.isArray(client) && client[0]?.name ? String(client[0].name) : '';
         const phone = Array.isArray(client) && client[0]?.phone ? String(client[0].phone) : '';
         await OrderRepository.create(telegramId, [
-          { number: String(s.number), title: String(s.title), count: Number(s.quantity), price: Number(s.price) }
+          { number: String(s.number), title: String(s.title), count: Number(s.quantity), price: Number(s.price), brand: String(s.brand || ''), distributorId: String(s.distributorId || ''), supplierCode: String(s.supplierCode || ''), lastUpdateTime: String(s.lastUpdateTime || '') }
         ], `Доставка: Адрес ${address}`, name, phone);
       }
     } catch (e) { /* noop */ }

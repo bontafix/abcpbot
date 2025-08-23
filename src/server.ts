@@ -1,9 +1,8 @@
 import express from 'express';
 import { bot } from './bot';
 import * as dotenv from 'dotenv';
-import { db } from './db';
-import { order } from './models';
-import { and, eq, gte } from 'drizzle-orm';
+import { OrderRepository } from './repositories/orderRepository';
+import { getDistributors } from './abcp';
 
 dotenv.config();
 
@@ -59,24 +58,32 @@ app.get('/bot-api/orders', requireApiKey, async (req: express.Request, res: expr
     const sinceStr = (req.query.since as string) || '';
     const page = Math.max(1, Number(req.query.page || 1));
     const pageSize = Math.min(1000, Math.max(1, Number(req.query.pageSize || 100)));
-    const offset = (page - 1) * pageSize;
+    const sinceDate = sinceStr ? new Date(sinceStr) : undefined;
+    const since = sinceDate && !isNaN(sinceDate.getTime()) ? sinceDate : undefined;
+   
+    const rows = await OrderRepository.list({
+      telegramId: telegramId || undefined,
+      since,
+      page,
+      pageSize,
+    });
 
-    const conditions: any[] = [];
-    if (telegramId) conditions.push(eq(order.telegram_id, telegramId));
-    if (sinceStr) {
-      const sinceDate = new Date(sinceStr);
-      if (!isNaN(sinceDate.getTime())) conditions.push(gte(order.datetime, sinceDate));
+    // Получим дистрибьюторов и преобразуем в map по id
+    let distributorsMap: Record<string, any> = {};
+    try {
+      const distributors: any[] = await getDistributors();
+      distributorsMap = Array.isArray(distributors)
+        ? distributors.reduce((acc: Record<string, any>, d: any) => {
+            const id = String(d?.id ?? d?.distributorId ?? '');
+            if (id) acc[id] = d;
+            return acc;
+          }, {})
+        : {};
+    } catch (e) {
+      distributorsMap = {};
     }
 
-    const whereClause = conditions.length ? and(...conditions) : undefined;
-    const rows = await db
-      .select()
-      .from(order)
-      .where(whereClause as any)
-      .limit(pageSize)
-      .offset(offset);
-
-    res.json({ page, pageSize, count: rows.length, orders: rows });
+    res.json({ page, pageSize, count: rows.length, orders: rows, distributorsMap });
     return;
   } catch (e: any) {
     console.error('GET /api/orders error:', e?.message || e);

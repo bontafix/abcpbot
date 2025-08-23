@@ -1,6 +1,6 @@
 import { db } from '../db';
 import { order } from '../models';
-import { eq } from 'drizzle-orm';
+import { and, eq, gte } from 'drizzle-orm';
 import { DatabaseError } from 'pg';
 
 export interface OrderItem {
@@ -8,6 +8,10 @@ export interface OrderItem {
   title: string;
   count: number;
   price: number;
+  brand?: string;
+  distributorId?: string;
+  supplierCode?: string;
+  lastUpdateTime?: string;
 }
 
 export interface OrderRow {
@@ -35,6 +39,27 @@ export const OrderRepository = {
       }
       return { success: false, message: 'Не удалось создать заказ.' };
     }
+  },
+
+  async list(params: { telegramId?: string; since?: Date; page?: number; pageSize?: number }): Promise<OrderRow[]> {
+    const page = Math.max(1, Number(params.page || 1));
+    const pageSize = Math.min(1000, Math.max(1, Number(params.pageSize || 100)));
+    const offset = (page - 1) * pageSize;
+
+    const filterConditions: any[] = [];
+    if (params.telegramId) filterConditions.push(eq(order.telegram_id, params.telegramId));
+    if (params.since) filterConditions.push(gte(order.datetime, params.since));
+
+    const whereClause = filterConditions.length ? and(...filterConditions) : undefined;
+
+    const rows = await db
+      .select()
+      .from(order)
+      .where(whereClause as any)
+      .limit(pageSize)
+      .offset(offset);
+
+    return rows as unknown as OrderRow[];
   },
 
   async getByTelegramId(telegramId: string): Promise<OrderRow[] | { success: boolean; message: string }> {
