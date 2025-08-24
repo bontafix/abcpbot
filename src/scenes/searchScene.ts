@@ -31,9 +31,20 @@ interface MyContext extends Scenes.WizardContext<MyWizardSession> { }
 
 // Создаём шаги мастера
 const step1 = async (ctx: MyContext) => {
-  // Если пришли из отмены оформления с данными, сразу покажем предложения без запроса ввода
+  // Если пришли из отмены оформления или возврата из Info, сразу покажем предложения без запроса ввода
   const state = ctx.wizard.state as SearchWizardState;
-  const resume = (ctx.scene.state || {}) as { resumeBrand?: string; resumeNumber?: string };
+  const resume = (ctx.scene.state || {}) as { resumeBrand?: string; resumeNumber?: string; resumeFromInfo?: boolean };
+
+  // Возврат из сцены Info: восстанавливаем состояние поиска и переходим к шагу обработки кнопок
+  if (resume.resumeFromInfo && (ctx as any).session && (ctx as any).session.searchState) {
+    try {
+      const saved = (ctx as any).session.searchState as Partial<SearchWizardState>;
+      Object.assign(state, saved || {});
+    } finally {
+      try { delete (ctx as any).session.searchState; } catch {}
+    }
+    return ctx.wizard.selectStep(2);
+  }
   if (resume.resumeNumber && resume.resumeBrand) {
     state.number = resume.resumeNumber;
     const resultSearchArticles = await searchArticles(
@@ -210,6 +221,21 @@ const step3 = async (ctx: MyContext) => {
       return;
     }
 
+    // Обработка кнопки «Инфо»
+    if (data.startsWith('info:')) {
+      await ctx.answerCbQuery();
+      const [, brand, number] = data.split(':');
+      // Сохраняем текущее состояние поиска в сессию, чтобы восстановить без перерисовки
+      try {
+        const snapshot = JSON.parse(JSON.stringify(ctx.wizard.state));
+        (ctx as any).session.searchState = snapshot;
+      } catch {
+        (ctx as any).session.searchState = (ctx.wizard.state as any);
+      }
+      await ctx.scene.enter('info' as any, { brand, number });
+      return;
+    }
+
     // Обработка кнопки «Заказать»
     if (data.startsWith('order:')) {
       await ctx.answerCbQuery();
@@ -374,6 +400,7 @@ function getOrderInlineKeyboard(a: any) {
   return {
     inline_keyboard: [[
       { text: 'Заказать', callback_data: `order:${a.brand}:${a.number}:${a.availability ?? ''}` },
+      { text: 'Инфо', callback_data: `info:${a.brand}:${a.number}` },
       { text: 'Новый поиск', callback_data: 'restart_search' }
     ]]
   } as any;

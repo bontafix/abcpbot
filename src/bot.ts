@@ -12,6 +12,7 @@ import registrationScene from './scenes/registrationScene';
 import profileScene from './scenes/profileScene';
 import ordersScene from './scenes/ordersScene';
 import ordersSummaryScene from './scenes/ordersSummaryScene';
+import infoScene from './scenes/infoScene';
 
 
 import { keyboard } from 'telegraf/typings/markup';
@@ -38,7 +39,7 @@ interface MyWizardSession extends Scenes.WizardSessionData {
 interface MyContext extends Scenes.WizardContext<MyWizardSession> { }
 
 // Создаём Stage
-const stage = new Scenes.Stage<MyContext>([searchWizard as any, orderScene as any, registrationScene as any, profileScene as any, ordersScene as any, ordersSummaryScene as any]);
+const stage = new Scenes.Stage<MyContext>([searchWizard as any, orderScene as any, registrationScene as any, profileScene as any, ordersScene as any, ordersSummaryScene as any, infoScene as any]);
 // Глобальная навигация внутри сцен: кнопка «Поиск»
 stage.hears('Поиск', async (ctx) => {
   try { await ctx.scene.leave(); } catch {}
