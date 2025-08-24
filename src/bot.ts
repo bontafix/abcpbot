@@ -67,6 +67,14 @@ bot.use((ctx, next) => {
   return next(); // Продолжаем обработку
 });
 
+// Блокируем работу бота в группах и супергруппах
+bot.use((ctx, next) => {
+  if (ctx.chat?.type && ctx.chat.type !== 'private') {
+    return; // Игнорируем все апдейты не из приватных чатов
+  }
+  return next();
+});
+
 bot.start(async (ctx) => {
   const telegramId = String(ctx.message.from.id);
   try {
@@ -170,7 +178,10 @@ bot.command('ver', async (ctx) => {
       { command: 'help', description: 'Помощь' },
       { command: 'search', description: 'Поиск' },
       { command: 'ver', description: 'Показать версию' },
-    ]);
+    ], { scope: { type: 'all_private_chats' } });
+
+    // Убираем команды в группах/супергруппах
+    await bot.telegram.setMyCommands([], { scope: { type: 'all_group_chats' } });
   } catch (e) {
     console.error('Не удалось установить команды бота:', e);
   }
