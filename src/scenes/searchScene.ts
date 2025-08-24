@@ -400,7 +400,7 @@ function getOrderInlineKeyboard(a: any) {
   return {
     inline_keyboard: [[
       { text: 'Заказать', callback_data: `order:${a.brand}:${a.number}:${a.availability ?? ''}` },
-      { text: 'Инфо', callback_data: `info:${a.brand}:${a.number}` },
+      // { text: 'Инфо', callback_data: `info:${a.brand}:${a.number}` },
       { text: 'Новый поиск', callback_data: 'restart_search' }
     ]]
   } as any;

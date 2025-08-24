@@ -21,8 +21,9 @@ function requireApiKey(req: express.Request, res: express.Response, next: expres
 }
 
 export function registerBotApiRoutes(app: express.Application): void {
-  // Логирование запросов к /bot-api в файл logs/api.log
-  app.use('/bot-api', async (req, res, next) => {
+  const basePath = process.env.NODE_ENV === 'production' ? '/abcpbot-api' : '/bot-api';
+  // Логирование запросов к basePath в файл logs/api.log
+  app.use(basePath, async (req, res, next) => {
     const startedAt = Date.now();
     const { method, url } = req;
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
@@ -58,8 +59,8 @@ export function registerBotApiRoutes(app: express.Application): void {
 
     next();
   });
-  // GET /bot-api/orders?telegramId=&since=ISO&page=1&pageSize=100
-  app.get('/bot-api/orders', requireApiKey, async (req: express.Request, res: express.Response): Promise<void> => {
+  // GET {basePath}/orders?telegramId=&since=ISO&page=1&pageSize=100
+  app.get(`${basePath}/orders`, requireApiKey, async (req: express.Request, res: express.Response): Promise<void> => {
     try {
       const telegramId = (req.query.telegramId as string) || '';
       const sinceStr = (req.query.since as string) || '';
@@ -106,8 +107,8 @@ export function registerBotApiRoutes(app: express.Application): void {
     }
   });
 
-  // POST /bot-api/orders/status { telegramId: string, orderId: number, status: string }
-  app.post('/bot-api/orders/status', requireApiKey, async (req: express.Request, res: express.Response): Promise<void> => {
+  // POST {basePath}/orders/status { telegramId: string, orderId: number, status: string }
+  app.post(`${basePath}/orders/status`, requireApiKey, async (req: express.Request, res: express.Response): Promise<void> => {
     try {
       const telegramId = String(req.body?.telegramId || '').trim();
       const orderIdNum = Number(req.body?.orderId);
@@ -146,8 +147,8 @@ export function registerBotApiRoutes(app: express.Application): void {
     }
   });
 
-  // POST /bot-api/admin/orders/status { orderId: number, status: string }
-  app.post('/bot-api/admin/orders/status', requireApiKey, async (req: express.Request, res: express.Response): Promise<void> => {
+  // POST {basePath}/admin/orders/status { orderId: number, status: string }
+  app.post(`${basePath}/admin/orders/status`, requireApiKey, async (req: express.Request, res: express.Response): Promise<void> => {
     try {
       const orderIdNum = Number(req.body?.orderId);
       const statusInput = String(req.body?.status || '').trim();

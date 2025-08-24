@@ -13,6 +13,7 @@ import profileScene from './scenes/profileScene';
 import ordersScene from './scenes/ordersScene';
 import ordersSummaryScene from './scenes/ordersSummaryScene';
 import infoScene from './scenes/infoScene';
+import helpScene from './scenes/helpScene';
 
 
 import { keyboard } from 'telegraf/typings/markup';
@@ -39,7 +40,7 @@ interface MyWizardSession extends Scenes.WizardSessionData {
 interface MyContext extends Scenes.WizardContext<MyWizardSession> { }
 
 // Создаём Stage
-const stage = new Scenes.Stage<MyContext>([searchWizard as any, orderScene as any, registrationScene as any, profileScene as any, ordersScene as any, ordersSummaryScene as any, infoScene as any]);
+const stage = new Scenes.Stage<MyContext>([searchWizard as any, orderScene as any, registrationScene as any, profileScene as any, ordersScene as any, ordersSummaryScene as any, infoScene as any, helpScene as any]);
 // Глобальная навигация внутри сцен: кнопка «Поиск»
 stage.hears('Поиск', async (ctx) => {
   try { await ctx.scene.leave(); } catch {}
@@ -83,6 +84,30 @@ bot.start(async (ctx) => {
 
 bot.hears('Поиск', async (ctx) => {
   await ctx.scene.enter('search');
+});
+
+bot.command('search', async (ctx) => {
+  try { await ctx.scene.leave(); } catch {}
+  await ctx.scene.enter('search');
+});
+
+bot.command('menu', async (ctx) => {
+  const telegramId = ctx.from?.id ? String(ctx.from.id) : '';
+  try {
+    const client = await ClientRepository.get(telegramId);
+    if (Array.isArray(client) && client.length > 0) {
+      await ctx.reply('Главное меню:', await getMainMenuUser());
+    } else {
+      await ctx.reply('Главное меню:', await getMainMenuGuest());
+    }
+  } catch (e) {
+    await ctx.reply('Главное меню:', await getMainMenuGuest());
+  }
+});
+
+bot.command('help', async (ctx) => {
+  try { await ctx.scene.leave(); } catch {}
+  await ctx.scene.enter('help');
 });
 
 
@@ -143,6 +168,7 @@ bot.command('ver', async (ctx) => {
       { command: 'start', description: 'Запуск' },
       { command: 'menu', description: 'Меню' },
       { command: 'help', description: 'Помощь' },
+      { command: 'search', description: 'Поиск' },
       { command: 'ver', description: 'Показать версию' },
     ]);
   } catch (e) {
