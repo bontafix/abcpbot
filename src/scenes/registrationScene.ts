@@ -54,6 +54,17 @@ const registrationStep3 = async (ctx: Scenes.WizardContext) => {
       return ctx.scene.leave();
     }
 
+    // Уведомление в служебный чат о новой регистрации
+    try {
+      const notifyChatId = process.env.REGISTRATION_NOTIFY_CHAT_ID || process.env.TEST_CHAT_ID;
+      if (notifyChatId) {
+        const username = ctx.from?.username ? `@${ctx.from.username}` : '';
+        const userRef = username || `tg://user?id=${telegramId}`;
+        const message = `Новая регистрация\nИмя: ${name}\nТелефон: ${phoneNumber}\nTelegram: ${userRef}\nID: ${telegramId}`;
+        await ctx.telegram.sendMessage(notifyChatId, message);
+      }
+    } catch (err) { /* noop */ }
+
     // После успешной регистрации: если есть целевая сцена, переходим в неё
     const forward = (ctx.scene.state || {}) as { afterScene?: string; afterState?: any };
     if (forward.afterScene) {
