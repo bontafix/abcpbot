@@ -1,6 +1,6 @@
 import { db } from '../db';
 import { client } from '../models';
-import { eq } from 'drizzle-orm';
+import { eq, desc, count } from 'drizzle-orm';
 import { DatabaseError } from 'pg';
 
 interface Client {
@@ -61,6 +61,19 @@ export const ClientRepository = {
       console.error('Ошибка при удалении клиента:', error);
       return { success: false, message: 'Произошла ошибка при удалении клиента.' };
     }
+  },
+
+  async list(limit: number, offset: number): Promise<Client[]> {
+    const safeLimit = Math.max(1, Math.min(50, Math.floor(limit)));
+    const safeOffset = Math.max(0, Math.floor(offset));
+    const rows = await db.select().from(client).orderBy(desc(client.id)).limit(safeLimit).offset(safeOffset);
+    return rows as Client[];
+  },
+
+  async count(): Promise<number> {
+    const rows = await db.select({ value: count() }).from(client);
+    const total = (rows && rows[0] && typeof rows[0].value === 'number') ? rows[0].value : 0;
+    return total;
   },
 };
 

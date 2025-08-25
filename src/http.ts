@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import http from 'http';
 import https from 'https';
 
@@ -23,7 +23,7 @@ export const httpClient: AxiosInstance = axios.create({
 });
 
 // Логирование длительности запросов
-httpClient.interceptors.request.use((config: AxiosRequestConfig) => {
+httpClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     (config as any).metadata = { start: Date.now() };
     return config;
 });

@@ -16,15 +16,28 @@ import ordersScene from './scenes/ordersScene';
 import ordersSummaryScene from './scenes/ordersSummaryScene';
 import infoScene from './scenes/infoScene';
 import helpScene from './scenes/helpScene';
+import adminScene from './scenes/adminScene';
+import adminClientsScene from './scenes/adminClientsScene';
 
 
 import { keyboard } from 'telegraf/typings/markup';
 import * as dotenv from 'dotenv';
 import fs from 'fs';
 import dayjs from 'dayjs';
+import { attachRoles, requireRole } from './utils/rbac';
 
 const envFile = process.env.NODE_ENV === 'production' ? '.env.prod' : '.env.dev';
 dotenv.config({ path: envFile });
+
+// Горячая перезагрузка .env при изменении файла (для обновления ADMIN_IDS без рестарта)
+try {
+  fs.watch(envFile, { persistent: false }, () => {
+    try {
+      dotenv.config({ path: envFile, override: true });
+      // console.log('ENV reloaded');
+    } catch {}
+  });
+} catch {}
 
 
 // Инициализация Redis для хранения сессий (локальный доступ)
@@ -60,7 +73,7 @@ interface MyWizardSession extends Scenes.WizardSessionData {
 interface MyContext extends Scenes.WizardContext<MyWizardSession> { }
 
 // Создаём Stage
-const stage = new Scenes.Stage<MyContext>([searchWizard as any, orderScene as any, registrationScene as any, profileScene as any, ordersScene as any, ordersSummaryScene as any, infoScene as any, helpScene as any]);
+const stage = new Scenes.Stage<MyContext>([searchWizard as any, orderScene as any, registrationScene as any, profileScene as any, ordersScene as any, ordersSummaryScene as any, infoScene as any, helpScene as any, adminScene as any, adminClientsScene as any]);
 // Глобальная навигация внутри сцен: кнопка «Поиск»
 stage.hears('Поиск', async (ctx) => {
   try { await ctx.scene.leave(); } catch {}
@@ -115,6 +128,8 @@ bot.telegram.webhookReply = false;
 
 // Подключаем session (через Redis store) и Stage
 bot.use(session({ store: redisSessionStore, defaultSession: () => ({}) }));
+// RBAC: добавляем роли в контекст
+bot.use(attachRoles);
 bot.use(stage.middleware());
 
 
@@ -179,6 +194,13 @@ bot.command('menu', async (ctx) => {
 bot.command('help', async (ctx) => {
   try { await ctx.scene.leave(); } catch {}
   await ctx.scene.enter('help');
+});
+
+// Пример защищённой команды: доступна только admin
+bot.command('admin', requireRole(['admin']), async (ctx) => {
+  try { await ctx.scene.leave(); } catch {}
+  // @ts-ignore
+  await ctx.scene.enter('admin_scene');
 });
 
 
