@@ -236,11 +236,12 @@ bot.command('ver', async (ctx) => {
 (async () => {
   try {
     await bot.telegram.setMyCommands([
-      { command: 'start', description: 'Запуск' },
-      { command: 'menu', description: 'Меню' },
-      { command: 'help', description: 'Помощь' },
+      { command: 'start', description: 'Начало' },
       { command: 'search', description: 'Поиск' },
-      { command: 'ver', description: 'Показать версию' },
+      { command: 'order', description: 'Заказы' },
+      // { command: 'menu', description: 'Меню' },
+      { command: 'help', description: 'Помощь' },
+      { command: 'ver', description: 'Версия' },
     ], { scope: { type: 'all_private_chats' } });
 
     // Убираем команды в группах/супергруппах
