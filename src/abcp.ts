@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { httpClient as axios } from './http';
 import { transformAvailability } from './utils/availability';
 
 // In-memory кэш для getDistributors с дедупликацией параллельных запросов
@@ -16,13 +16,21 @@ export async function getArticlesInfo(brand: string, number: string, format: str
             console.error('ABCP env vars are not set');
             return [];
         }
-        const url = `https://${host}/articles/info?userlogin=${user}&userpsw=${pass}&brand=${brand}&number=${number}&format=${format}`
+        const url = `https://${host}/articles/info`;
+        const params = new URLSearchParams([
+            ['userlogin', user],
+            ['userpsw', pass],
+            ['brand', brand],
+            ['number', number],
+            ['format', format],
+        ]);
         // console.log(url)
 
         let config = {
             method: 'get',
             maxBodyLength: Infinity,
             url: url,
+            params: params,
             headers: {}
         };
         const response = await axios.request(config)
@@ -52,13 +60,19 @@ export async function searchBrands(number: string) {
             console.error('ABCP env vars are not set');
             return [];
         }
-        const url = `https://${host}/search/brands?userlogin=${user}&userpsw=${pass}&number=${number}`
+        const url = `https://${host}/search/brands`;
+        const params = new URLSearchParams([
+            ['userlogin', user],
+            ['userpsw', pass],
+            ['number', number],
+        ]);
         // console.log(url)
 
         let config = {
             method: 'get',
             maxBodyLength: Infinity,
             url: url,
+            params: params,
             headers: {}
         };
         const response = await axios.request(config)
@@ -81,6 +95,7 @@ export async function searchBrands(number: string) {
 export async function searchArticles(
     number: string,
     brand: string, 
+    profileId: string,
      ) {
     try {
         const host = process.env.ABCP_HOST;
@@ -90,12 +105,20 @@ export async function searchArticles(
             console.error('ABCP env vars are not set');
             return [];
         }
-
-        const url = `https://${host}/search/articles?userlogin=${user}&userpsw=${pass}&number=${number}&brand=${brand}&useOnlineStocks=1`;
+        const url = `https://${host}/search/articles`;
+        const params = new URLSearchParams([
+            ['userlogin', user],
+            ['userpsw', pass],
+            ['number', number],
+            ['brand', brand],
+            ['profileId', profileId],
+            ['useOnlineStocks', '1'],
+        ]);
         let config = {
             method: 'get',
             maxBodyLength: Infinity,
             url: url,
+            params: params,
             headers: {}
         };
         const response = await axios.request(config);
@@ -144,11 +167,16 @@ export async function getDistributors() {
             console.error('ABCP env vars are not set');
             return [];
         }
-        const url = `https://${host}/cp/distributors?userlogin=${user}&userpsw=${pass}`;
+        const url = `https://${host}/cp/distributors`;
+        const params = new URLSearchParams([
+            ['userlogin', user],
+            ['userpsw', pass],
+        ]);
         let config = {
             method: 'get',
             maxBodyLength: Infinity,
             url: url,
+            params: params,
             headers: {}
         };
 

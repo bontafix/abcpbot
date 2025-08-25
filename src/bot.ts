@@ -1,4 +1,6 @@
 import { Telegraf, session, Scenes } from 'telegraf';
+import type { SessionStore } from 'telegraf';
+import Redis from 'ioredis';
 // import { db } from './db';
 // import { user, service } from './models';
 // import axios from 'axios';
@@ -25,6 +27,24 @@ const envFile = process.env.NODE_ENV === 'production' ? '.env.prod' : '.env.dev'
 dotenv.config({ path: envFile });
 
 
+// Инициализация Redis для хранения сессий (локальный доступ)
+const redis = new Redis(process.env.REDIS_URL || 'redis://127.0.0.1:6379');
+const SESSION_TTL_SECONDS = Number(process.env.SESSION_TTL_SECONDS || 86400);
+const SESSION_PREFIX = process.env.SESSION_PREFIX || 'tg:sess:';
+
+const redisSessionStore: SessionStore<any> = {
+  async get(name) {
+    const raw = await redis.get(SESSION_PREFIX + name);
+    return raw ? JSON.parse(raw) : undefined;
+  },
+  async set(name, value) {
+    await redis.set(SESSION_PREFIX + name, JSON.stringify(value), 'EX', SESSION_TTL_SECONDS);
+  },
+  async delete(name) {
+    await redis.del(SESSION_PREFIX + name);
+  }
+};
+
 // Интерфейс состояния мастера
 interface SearchWizardState {
   number?: string;
@@ -49,9 +69,12 @@ stage.hears('Поиск', async (ctx) => {
  
 // Создаём бота
 const bot = new Telegraf<MyContext>(process.env.BOT_TOKEN || '');
+// Отключаем webhookReply, чтобы отвечать 200 сразу и отправлять сообщения отдельно
+// @ts-ignore
+bot.telegram.webhookReply = false;
 
-// Подключаем session и Stage
-bot.use(session());
+// Подключаем session (через Redis store) и Stage
+bot.use(session({ store: redisSessionStore, defaultSession: () => ({}) }));
 bot.use(stage.middleware());
 
 

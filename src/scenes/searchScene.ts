@@ -47,13 +47,14 @@ const step1 = async (ctx: MyContext) => {
   }
   if (resume.resumeNumber && resume.resumeBrand) {
     state.number = resume.resumeNumber;
-    const resultSearchArticles = await searchArticles(
-      resume.resumeNumber, resume.resumeBrand
-    );
+    console.log('process.env.PROFILE_ID', process.env.PROFILE_ID);
+      const resultSearchArticles = await searchArticles(
+        resume.resumeNumber, resume.resumeBrand, process.env.PROFILE_ID || ''
+      );
 
     const articles = (resultSearchArticles as any[]) || [];
     console.log(resultSearchArticles);
-    console.log(`resultSearchArticles =====================`);
+    console.log(`2 resultSearchArticles =====================`);
     if (articles.length === 0) {
       await ctx.reply('Не найдено. Введите код запчасти:');
       return ctx.wizard.next();
@@ -71,7 +72,7 @@ const step1 = async (ctx: MyContext) => {
 
   await ctx.reply('Введите код запчасти:', {
     reply_markup: {
-      keyboard: [[{ text: 'История' }, { text: 'Очистить историю' }], [{ text: 'Назад' }]],
+      keyboard: [[{ text: 'История запросов' }, { text: 'Очистить историю' }], [{ text: 'Назад' }]],
       resize_keyboard: true,
       one_time_keyboard: false,
     } as any,
@@ -155,6 +156,8 @@ const step2 = async (ctx: MyContext) => {
         const telegramId = ctx.from?.id ? String(ctx.from.id) : '';
         if (telegramId) {
           const { SearchHistoryRepository } = await import('../repositories/searchHistoryRepository');
+          console.log(state.number, entries.length);
+         console.log(`SearchHistoryRepository.add =====================`);
           await SearchHistoryRepository.add(telegramId, state.number || '', entries.length);
         }
       } catch {}
@@ -270,12 +273,12 @@ const step3 = async (ctx: MyContext) => {
       });
       return;
     }
-
+    console.log('process.env.PROFILE_ID', process.env.PROFILE_ID);
     const resultSearchArticles = await searchArticles(
-      selectedItem.number, selectedItem.brand
+      selectedItem.number, selectedItem.brand, process.env.PROFILE_ID || ''
     );
-    // console.log(resultSearchArticles);
-    // console.log(`resultSearchArticles >>>> =====================`);
+    console.log(resultSearchArticles);
+    console.log(`resultSearchArticles >>>> =====================`);
     const articles = (resultSearchArticles as any[]) || [];
     if (articles.length === 0) {
       await ctx.reply('Не найдено.');
@@ -356,7 +359,8 @@ function renderPublicItem(a: any): string {
     `*Артикул*: ${String(a.number)}\n` +
     `*Описание*: ${String(a.description ?? '-')}\n` +
     `*Доступно*: ${String(a.availabilityTransformed ?? a.availability ?? '-')}\n` +
-    `*Срок*: ${String(a.deliveryProbability === 0 ? 'На складе' : a.descriptionOfDeliveryProbability)}\n` +
+    // `*Срок*: ${String(a.deliveryProbability === 0 ? 'На складе' : a.descriptionOfDeliveryProbability)}\n` +
+    `*Срок*: ${String(a.deliveryPeriod === 0 ? 'На складе' : `${a.deliveryPeriod} часа`)}\n` +
     `*Цена*: ${formatPrice(a.price)}\n` +
     `*Вес*: ${String(a.weight)}`;
 }
@@ -400,7 +404,7 @@ function getOrderInlineKeyboard(a: any) {
   return {
     inline_keyboard: [[
       { text: 'Заказать', callback_data: `order:${a.brand}:${a.number}:${a.availability ?? ''}` },
-      // { text: 'Инфо', callback_data: `info:${a.brand}:${a.number}` },
+      { text: 'Инфо', callback_data: `info:${a.brand}:${a.number}` },
       { text: 'Новый поиск', callback_data: 'restart_search' }
     ]]
   } as any;
