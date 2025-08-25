@@ -66,6 +66,46 @@ stage.hears('Поиск', async (ctx) => {
   try { await ctx.scene.leave(); } catch {}
   await ctx.scene.enter('search');
 });
+// Глобальные команды внутри любых сцен
+stage.command('start', async (ctx) => {
+  try { await ctx.scene.leave(); } catch {}
+  const telegramId = ctx.from?.id ? String(ctx.from.id) : '';
+  try {
+    const client = await ClientRepository.get(telegramId);
+    if (Array.isArray(client) && client.length > 0) {
+      await ctx.reply('Добро пожаловать!', await getMainMenuUser());
+    } else {
+      await ctx.reply('Добро пожаловать! Зарегистрируйтесь, чтобы использовать все возможности.', await getMainMenuGuest());
+    }
+  } catch (e) {
+    await ctx.reply('Добро пожаловать! Зарегистрируйтесь, чтобы использовать все возможности.', await getMainMenuGuest());
+  }
+});
+
+stage.command('search', async (ctx) => {
+  try { await ctx.scene.leave(); } catch {}
+  await ctx.scene.enter('search');
+});
+
+stage.command('menu', async (ctx) => {
+  try { await ctx.scene.leave(); } catch {}
+  const telegramId = ctx.from?.id ? String(ctx.from.id) : '';
+  try {
+    const client = await ClientRepository.get(telegramId);
+    if (Array.isArray(client) && client.length > 0) {
+      await ctx.reply('Главное меню:', await getMainMenuUser());
+    } else {
+      await ctx.reply('Главное меню:', await getMainMenuGuest());
+    }
+  } catch (e) {
+    await ctx.reply('Главное меню:', await getMainMenuGuest());
+  }
+});
+
+stage.command('help', async (ctx) => {
+  try { await ctx.scene.leave(); } catch {}
+  await ctx.scene.enter('help');
+});
  
 // Создаём бота
 const bot = new Telegraf<MyContext>(process.env.BOT_TOKEN || '');

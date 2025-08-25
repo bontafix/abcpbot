@@ -192,6 +192,23 @@ const step2 = async (ctx: MyContext) => {
 const step3 = async (ctx: MyContext) => {
   const state = ctx.wizard.state as SearchWizardState;
 
+  // Разрешаем глобальные слеш-команды даже на шаге результатов
+  if (ctx.message && 'text' in ctx.message && ctx.message.text.startsWith('/')) {
+    switch (ctx.message.text) {
+      case '/start':
+      case '/menu':
+      case '/search':
+      case '/help':
+      case '/cancel':
+        // Выходим из сцены и позволяем глобальным хэндлерам обработать команду
+        try { await ctx.scene.leave(); } catch {}
+        return;
+      default:
+        await ctx.reply('Эта команда недоступна в режиме просмотра результатов. Используйте /cancel или кнопку "Новый поиск".');
+        return;
+    }
+  }
+
   if (ctx.callbackQuery && 'data' in ctx.callbackQuery) {
     const data = (ctx.callbackQuery as any).data as string;
 
