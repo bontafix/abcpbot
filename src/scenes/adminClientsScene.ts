@@ -38,6 +38,7 @@ const adminClientsEnter = async (ctx: AnyContext) => {
   s.page = 1;
   s.pageSize = 10;
   await replyPage(ctx);
+  return ctx.wizard.next();
 };
 
 const adminClientsStep = async (ctx: AnyContext) => {
@@ -66,8 +67,17 @@ const adminClientsStep = async (ctx: AnyContext) => {
       return replyPage(ctx);
     }
     if (data === 'back:admin') {
-      // @ts-ignore
-      return ctx.scene.enter('admin_scene');
+      console.log('Переход в админ сцену из клиентов');
+      try {
+        await ctx.scene.leave();
+        await ctx.reply('Возврат в админ-панель...');
+        // @ts-ignore
+        return ctx.scene.enter('admin_scene');
+      } catch (error) {
+        console.error('Ошибка при переходе в админ сцену:', error);
+        await ctx.reply('Ошибка при переходе. Попробуйте команду /admin');
+      }
+      return;
     }
   }
 };

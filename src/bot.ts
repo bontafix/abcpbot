@@ -18,6 +18,7 @@ import infoScene from './scenes/infoScene';
 import helpScene from './scenes/helpScene';
 import adminScene from './scenes/adminScene';
 import adminClientsScene from './scenes/adminClientsScene';
+import adminDistributorsScene from './scenes/adminDistributorsScene';
 
 
 import { keyboard } from 'telegraf/typings/markup';
@@ -73,7 +74,7 @@ interface MyWizardSession extends Scenes.WizardSessionData {
 interface MyContext extends Scenes.WizardContext<MyWizardSession> { }
 
 // Создаём Stage
-const stage = new Scenes.Stage<MyContext>([searchWizard as any, orderScene as any, registrationScene as any, profileScene as any, ordersScene as any, ordersSummaryScene as any, infoScene as any, helpScene as any, adminScene as any, adminClientsScene as any]);
+const stage = new Scenes.Stage<MyContext>([searchWizard as any, orderScene as any, registrationScene as any, profileScene as any, ordersScene as any, ordersSummaryScene as any, infoScene as any, helpScene as any, adminScene as any, adminClientsScene as any, adminDistributorsScene as any]);
 // Глобальная навигация внутри сцен: кнопка «Поиск»
 stage.hears('Поиск', async (ctx) => {
   try { await ctx.scene.leave(); } catch {}
@@ -198,6 +199,7 @@ bot.command('help', async (ctx) => {
 
 // Пример защищённой команды: доступна только admin
 bot.command('admin', requireRole(['admin']), async (ctx) => {
+  console.log('Команда admin выполнена, переход в админ сцену');
   try { await ctx.scene.leave(); } catch {}
   // @ts-ignore
   await ctx.scene.enter('admin_scene');

@@ -7,6 +7,46 @@ let distributorsCacheExpiresAt = 0; // ms timestamp
 let distributorsFetchPromise: Promise<any[]> | null = null;
 
 
+export async function getDestributors() {
+    try {
+        const host = process.env.ABCP_HOST;
+        const user = process.env.ABCP_USER;
+        const pass = process.env.ABCP_PASS;
+        if (!host || !user || !pass) {
+            console.error('ABCP env vars are not set');
+            return [];
+        }
+        const url = `https://${host}/cp/distributors`;
+        const params = new URLSearchParams([
+            ['userlogin', user],
+            ['userpsw', pass],
+        ]);
+        // console.log(url)
+
+        let config = {
+            method: 'get',
+            maxBodyLength: Infinity,
+            url: url,
+            params: params,
+            headers: {}
+        };
+        const response = await axios.request(config)
+        // console.log(response)
+        const result: any = {}
+        if (response?.data) {
+            return (response?.data)
+        } else {
+            console.error(`Список поставщиков не найден`);
+            return (null);
+        }
+    } catch (error: any) {
+        console.error('Ошибка при выполнении запроса:', error?.response?.data);
+        console.error(error?.response?.data)
+        console.error(error?.status)
+        throw error;
+    }
+}
+
 export async function getArticlesInfo(brand: string, number: string, format: string) {
     try {
         const host = process.env.ABCP_HOST;
