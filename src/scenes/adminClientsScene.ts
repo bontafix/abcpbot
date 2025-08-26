@@ -27,7 +27,8 @@ async function replyPage(ctx: AnyContext) {
   const offset = (page - 1) * pageSize;
   const rows = await ClientRepository.list(pageSize, offset);
 
-  const lines = rows.map((c) => `#${c.id} • ${c.name} • ${c.phone}\n${c.telegram_id}${c.address ? `\n${c.address}` : ''}`);
+  // const lines_ = rows.map((c) => `#${c.id} • ${c.name} • ${c.phone}\n${c.telegram_id}${c.address ? `\n${c.address}` : ''}`);
+  const lines = rows.map((c) => `#${c.id} • ${c.name} • ${c.phone}`);
   const header = `Клиентов: ${total}. Стр. ${page}/${totalPages}.`;
   const text = [header, '', ...lines].join('\n');
   await ctx.reply(text || 'Нет клиентов.', { reply_markup: buildKeyboard(page, totalPages) } as any);
@@ -67,7 +68,7 @@ const adminClientsStep = async (ctx: AnyContext) => {
       return replyPage(ctx);
     }
     if (data === 'back:admin') {
-      console.log('Переход в админ сцену из клиентов');
+      // console.log('Переход в админ сцену из клиентов');
       try {
         await ctx.scene.leave();
         await ctx.reply('Возврат в админ-панель...');

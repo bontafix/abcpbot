@@ -1,9 +1,9 @@
 import express from 'express';
 import { bot } from './bot';
-import * as dotenv from 'dotenv';
+import { loadEnv } from './config/env';
 import { registerBotApiRoutes } from './web/botApiRoutes';
 
-dotenv.config();
+loadEnv();
 
 const app = express();
 

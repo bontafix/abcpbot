@@ -25,7 +25,7 @@ export const attachRoles: MiddlewareFn<any> = async (ctx, next) => {
   const roles = getUserRoles(telegramId);
   (ctx as any).state = (ctx as any).state || {};
   (ctx as any).state.roles = roles;
-  console.log(`Прикреплены роли для ${telegramId}:`, roles);
+  // console.log(`Прикреплены роли для ${telegramId}:`, roles);
   return next();
 };
 
@@ -33,7 +33,7 @@ export const requireRole = (allowed: Role[]): MiddlewareFn<any> => {
   return async (ctx, next) => {
     const roles: Role[] = (((ctx as any).state && (ctx as any).state.roles) || getUserRoles(ctx.from?.id ? String(ctx.from.id) : undefined));
     const permitted = roles.some((r) => allowed.includes(r));
-    console.log(`requireRole: ${allowed.join(',')}, доступные: ${roles.join(',')}, разрешено: ${permitted}`);
+    // console.log(`requireRole: ${allowed.join(',')}, доступные: ${roles.join(',')}, разрешено: ${permitted}`);
     if (!permitted) {
       if (ctx.callbackQuery) {
         try {

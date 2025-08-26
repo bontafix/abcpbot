@@ -22,23 +22,15 @@ import adminDistributorsScene from './scenes/adminDistributorsScene';
 
 
 import { keyboard } from 'telegraf/typings/markup';
-import * as dotenv from 'dotenv';
+import { loadEnv } from './config/env';
 import fs from 'fs';
 import dayjs from 'dayjs';
 import { attachRoles, requireRole } from './utils/rbac';
 
-const envFile = process.env.NODE_ENV === 'production' ? '.env.prod' : '.env.dev';
-dotenv.config({ path: envFile });
+loadEnv();
 
 // Горячая перезагрузка .env при изменении файла (для обновления ADMIN_IDS без рестарта)
-try {
-  fs.watch(envFile, { persistent: false }, () => {
-    try {
-      dotenv.config({ path: envFile, override: true });
-      // console.log('ENV reloaded');
-    } catch {}
-  });
-} catch {}
+// Если нужно авто-перезагружать .env в dev, можно будет добавить логику здесь
 
 
 // Инициализация Redis для хранения сессий (локальный доступ)
@@ -199,7 +191,7 @@ bot.command('help', async (ctx) => {
 
 // Пример защищённой команды: доступна только admin
 bot.command('admin', requireRole(['admin']), async (ctx) => {
-  console.log('Команда admin выполнена, переход в админ сцену');
+  // console.log('Команда admin выполнена, переход в админ сцену');
   try { await ctx.scene.leave(); } catch {}
   // @ts-ignore
   await ctx.scene.enter('admin_scene');

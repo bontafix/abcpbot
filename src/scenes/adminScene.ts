@@ -3,7 +3,7 @@ import { Scenes } from 'telegraf';
 type AnyContext = Scenes.SceneContext & { scene: any };
 
 const adminStep = async (ctx: AnyContext) => {
-  console.log('Вход в админ сцену');
+  // console.log('Вход в админ сцену');
   const text = 'Админ-панель:\n\nВыберите действие:';
   await ctx.reply(text, {
     reply_markup: {
@@ -20,11 +20,11 @@ const adminStep = async (ctx: AnyContext) => {
 const adminActionStep = async (ctx: AnyContext) => {
   if (ctx.callbackQuery && 'data' in ctx.callbackQuery) {
     const data = (ctx.callbackQuery as any).data as string;
-    console.log('Получено действие в админ сцене:', data);
+    // console.log('Получено действие в админ сцене:', data);
     await ctx.answerCbQuery();
     
     if (data === 'admin:clients') {
-      console.log('Переход в сцену клиентов');
+      // console.log('Переход в сцену клиентов');
       try {
         await ctx.scene.leave();
         // @ts-ignore

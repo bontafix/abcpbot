@@ -84,7 +84,7 @@ const adminDistributorsStep = async (ctx: AnyContext) => {
     
     // Обработка кнопки "В админку" должна быть первой и без try-catch
     if (data === 'back:admin') {
-      console.log('Переход в админ сцену из поставщиков');
+      // console.log('Переход в админ сцену из поставщиков');
       try {
         await ctx.scene.leave();
         await ctx.reply('Возврат в админ-панель...');
