@@ -15,9 +15,10 @@ const profileEnter = async (ctx: Scenes.WizardContext) => {
   }
   const info = client[0];
   await ctx.reply(
-    `Ваш профиль:\nИмя: ${info.name}\nТелефон: ${info.phone}\nАдрес Сдек: ${String(info.address || '').trim() || 'не указан'}`,
+    `Ваш профиль:\nИмя: ${info.name}\nТелефон: ${info.phone}\nАдрес Сдек: ${String(info.address || '').trim() || 'не указан'}\n\nРеквизиты организации:\nИНН: ${String((info as any).org_inn || '').trim() || 'не указан'}\nНаименование: ${String((info as any).org_title || '').trim() || 'не указано'}\nОГРН: ${String((info as any).org_ogrn || '').trim() || 'не указан'}\nЮр.адрес: ${String((info as any).org_address || '').trim() || 'не указан'}`,
     Markup.keyboard([
       [ 'Редактировать', 'Удалить' ],
+      [ 'Редактировать реквизиты' ],
       [ 'Изменить Адрес отправки Сдек' ],
       [ 'Назад' ]
     ]).resize()
@@ -53,6 +54,16 @@ const profileHandle = async (ctx: Scenes.WizardContext) => {
       Markup.keyboard([[ 'Отмена' ]]).resize()
     );
     return ctx.wizard.next();
+  }
+
+  if (text === 'Редактировать реквизиты') {
+    await ctx.reply(
+      'Отправьте реквизиты через перенос строки в формате:\nИНН\nНаименование организации\nОГРН\nЮр.адрес',
+      Markup.keyboard([[ 'Отмена' ]]).resize()
+    );
+    // @ts-ignore
+    ctx.wizard.selectStep(6);
+    return;
   }
 
   if (text === 'Изменить Адрес отправки Сдек') {
@@ -180,6 +191,66 @@ const profileScene = new Scenes.WizardScene<Scenes.WizardContext>(
     const result = await ClientRepository.update(telegramId, { address: text });
     await ctx.reply(result.message, await getMainMenuUser());
     return ctx.scene.leave();
+  }
+  ,
+  // Шаг 6: ввод реквизитов организации
+  async (ctx: Scenes.WizardContext) => {
+    if (!ctx.message || !('text' in ctx.message)) return;
+    const rawText = (ctx.message.text || '').trim();
+
+    if (rawText === 'Отмена' || rawText === 'Назад') {
+      await ctx.reply('Изменение отменено.', await getMainMenuUser());
+      return ctx.scene.leave();
+    }
+
+    const parts = rawText.split('\n').map((s) => s.trim()).filter(Boolean);
+    if (parts.length < 4) {
+      await ctx.reply('Нужно передать 4 строки: ИНН, Наименование, ОГРН, Юр.адрес. Попробуйте снова.', Markup.keyboard([[ 'Отмена' ]]).resize());
+      return; // остаёмся на шаге
+    }
+
+    const [org_inn, org_title, org_ogrn, org_address] = parts;
+    // @ts-ignore
+    ctx.wizard.state.org_inn = org_inn;
+    // @ts-ignore
+    ctx.wizard.state.org_title = org_title;
+    // @ts-ignore
+    ctx.wizard.state.org_ogrn = org_ogrn;
+    // @ts-ignore
+    ctx.wizard.state.org_address = org_address;
+
+    await ctx.reply(
+      `Проверьте реквизиты:\nИНН: ${org_inn}\nНаименование: ${org_title}\nОГРН: ${org_ogrn}\nЮр.адрес: ${org_address}\n\nСохранить изменения?`,
+      Markup.keyboard([[ 'Сохранить', 'Отмена' ]]).resize()
+    );
+    // @ts-ignore
+    ctx.wizard.selectStep(7);
+  }
+  ,
+  // Шаг 7: подтверждение реквизитов
+  async (ctx: Scenes.WizardContext) => {
+    if (!ctx.message || !('text' in ctx.message)) return;
+    const text = ctx.message.text;
+    const telegramId = ctx.from?.id ? String(ctx.from.id) : '';
+
+    if (text === 'Сохранить') {
+      // @ts-ignore
+      const org_inn = ctx.wizard.state.org_inn as string;
+      // @ts-ignore
+      const org_title = ctx.wizard.state.org_title as string;
+      // @ts-ignore
+      const org_ogrn = ctx.wizard.state.org_ogrn as string;
+      // @ts-ignore
+      const org_address = ctx.wizard.state.org_address as string;
+      const result = await ClientRepository.update(telegramId, { org_inn, org_title, org_ogrn, org_address });
+      await ctx.reply(result.message, await getMainMenuUser());
+      return ctx.scene.leave();
+    }
+
+    if (text === 'Отмена' || text === 'Назад') {
+      await ctx.reply('Изменения отменены.', await getMainMenuUser());
+      return ctx.scene.leave();
+    }
   }
 );
 

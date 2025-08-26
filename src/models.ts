@@ -31,6 +31,10 @@ export const client = pgTable('client', {
   phone: varchar('phone', { length: 20 }).notNull(),
   name: varchar('name', { length: 255 }).notNull(),
   address: text('address'),
+  org_inn: varchar('org_inn', { length: 12 }),
+  org_title: varchar('org_title', { length: 255 }),
+  org_ogrn: varchar('org_ogrn', { length: 15 }),
+  org_address: text('org_address'),
   datetime: timestamp('created_at')
     .notNull()
     .default(sql`now()`), // Устанавливает текущее время при создании записи

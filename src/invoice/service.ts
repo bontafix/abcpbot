@@ -102,7 +102,7 @@ export async function generatePdf(data: InvoiceData): Promise<InvoiceResult | un
         const signatureBase64 = fs.readFileSync(signaturePath, { encoding: 'base64' });
         const signatureDataUri = `data:image/png;base64,${signatureBase64}`;
 
-        const logoPath = `${PATH_LOCAL}/img/logouna.png`;
+        const logoPath = `${PATH_LOCAL}/img/logo.png`;
         const logoBase64 = fs.readFileSync(logoPath, { encoding: 'base64' });
         const logoDataUri = `data:image/png;base64,${logoBase64}`;
 
@@ -129,7 +129,7 @@ export async function generatePdf(data: InvoiceData): Promise<InvoiceResult | un
         const timestamp = Date.now();
 
         // Чтение HTML шаблона
-        const templateHtml = fs.readFileSync(FILE_TEMPLATE, 'utf8');
+        const templateHtml = fs.readFileSync( PATH_LOCAL + FILE_TEMPLATE, 'utf8');
 
         // Регистрация хелперов Handlebars
         Handlebars.registerHelper('increment', function (value: number): number {
@@ -164,8 +164,16 @@ export async function generatePdf(data: InvoiceData): Promise<InvoiceResult | un
             },
         });
 
+        // Гарантируем существование каталога для вывода
+        const outputDir = path.isAbsolute(PATH_OUTPUT_STATIC)
+            ? PATH_OUTPUT_STATIC
+            : path.resolve(process.cwd(), PATH_OUTPUT_STATIC);
+        try {
+            fs.mkdirSync(outputDir, { recursive: true });
+        } catch {}
+
         // Сохранение HTML файла
-        const htmlPath = path.resolve(__dirname, `${PATH_OUTPUT_STATIC}${data.number}-${timestamp}.html`);
+        const htmlPath = path.join(outputDir, `${data.number}-${timestamp}.html`);
         fs.writeFileSync(htmlPath, html, 'utf8');
         console.log(`HTML файл сохранен: ${htmlPath}`);
 
@@ -175,7 +183,7 @@ export async function generatePdf(data: InvoiceData): Promise<InvoiceResult | un
         await page.setContent(html);
         
         const fileName = `${data.number}-${timestamp}.pdf`;
-        const pathSave = `${PATH_OUTPUT_STATIC}${fileName}`;
+        const pathSave = path.join(outputDir, fileName);
         
         await page.pdf({
             path: pathSave,

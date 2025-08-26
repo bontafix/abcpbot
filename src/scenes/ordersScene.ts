@@ -1,6 +1,9 @@
 import { Scenes, Markup } from 'telegraf';
 import { OrderRepository, OrderRow } from '../repositories/orderRepository';
 import { getMainMenuUser } from '../menu';
+import { generatePdf } from '../invoice/service';
+import { ClientRepository } from '../repositories/clientRepository';
+import * as path from 'path';
 
 const STATUS_LABELS: Record<string, string> = {
   new: 'Новый',
@@ -70,6 +73,8 @@ const ordersEnter = async (ctx: Scenes.WizardContext) => {
       // Для незавершённых — кнопка отказа
       actionButtons.push({ text: 'Отказаться', callback_data: `order_cancel:${o.id}` });
     }
+    // Кнопка выписки счёта доступна для любого заказа
+    actionButtons.push({ text: 'Выписать счёт', callback_data: `order_invoice:${o.id}` });
 
     const sent = await ctx.reply(msg, {
       reply_markup: actionButtons.length
@@ -142,6 +147,103 @@ const ordersHandle = async (ctx: Scenes.WizardContext) => {
       try { await ctx.deleteMessage(); } catch (e) { /* ignore */ }
       await ctx.reply(res.message);
       return; // остаёмся в сцене; пользователь может выбрать статус снова
+    }
+    if (data.startsWith('order_invoice:')) {
+      await ctx.answerCbQuery('Генерирую счёт…');
+      const orderId = Number(data.split(':')[1]);
+      const telegramId = ctx.from?.id ? String(ctx.from.id) : '';
+      try {
+        // Ищем заказ пользователя
+        const list = await OrderRepository.getByTelegramId(telegramId);
+        if (!Array.isArray(list)) {
+          await ctx.reply('Не удалось получить список ваших заказов.');
+          return;
+        }
+        const order = (list as OrderRow[]).find(o => Number(o.id) === orderId);
+        if (!order) {
+          await ctx.reply(`Заказ #${orderId} не найден.`);
+          return;
+        }
+
+        // Проверяем реквизиты поставщика из окружения
+        const supplier = {
+          title: process.env.SUPPLIER_TITLE || '',
+          rs: process.env.SUPPLIER_RS || '',
+          bik: process.env.SUPPLIER_BIK || '',
+          ks: process.env.SUPPLIER_KS || '',
+          inn: process.env.SUPPLIER_INN || '',
+          ogrn: process.env.SUPPLIER_OGRN || '',
+          kpp: process.env.SUPPLIER_KPP || '',
+          bank: process.env.SUPPLIER_BANK || '',
+        };
+        if (!supplier.title || !supplier.rs || !supplier.bik || !supplier.ks || !supplier.inn) {
+          await ctx.reply('Реквизиты поставщика не настроены. Обратитесь к администратору.');
+          return;
+        }
+
+        const sum = (order.items || []).reduce((acc, it) => acc + Number(it.price || 0) * Number(it.count || 0), 0);
+        const pad2 = (n: number) => (n < 10 ? `0${n}` : String(n));
+        const now = new Date();
+        const date = `${pad2(now.getDate())}.${pad2(now.getMonth() + 1)}.${now.getFullYear()}`;
+        const invoiceNumber = `INV-${orderId}`;
+
+        // Получаем реквизиты клиента для подстановки в customer
+        const clientRow = await ClientRepository.get(telegramId);
+        const clientInfo = Array.isArray(clientRow) && clientRow.length ? (clientRow as any)[0] : undefined;
+        const customer = clientInfo ? {
+          title: String(clientInfo.org_title || clientInfo.name || '').trim(),
+          inn: String(clientInfo.org_inn || '').trim(),
+          ogrn: String(clientInfo.org_ogrn || '').trim(),
+          address: String(clientInfo.org_address || clientInfo.address || '').trim(),
+          phone: String(order.phone || '').trim()
+        } : { title: order.name, inn: '', address: '', phone: String(order.phone || '').trim() };
+
+        // Готовим позиции счёта из заказа
+        const items = (order.items || []).map((it: any) => {
+          const quantity = Number(it.count ?? it.quantity ?? 1);
+          const price = Number(it.price ?? 0);
+          return {
+            name: String(` ${it.brand} ${it.number} ${it.title}`).trim(),
+            unit: String(it.unit ?? 'шт.'),
+            tax: String(it.tax ?? 'без НДС'),
+            price,
+            quantity,
+            total: Number(price * quantity),
+          };
+        });
+
+        const invoiceData: any = {
+          supplier,
+          customer,
+          items,
+          sum: Number(sum.toFixed(2)),
+          sumStr: sum.toFixed(2),
+          itemsCount: items.length,
+          comment: `Оплата по заказу #${orderId}`,
+          number: invoiceNumber,
+          date,
+        };
+
+        const result = await generatePdf(invoiceData);
+        if (result && result.url) {
+          // Пробуем отправить PDF как документ
+          try {
+            const baseDir = process.env.PATH_OUTPUT_STATIC || '';
+            const filePath = path.isAbsolute(baseDir)
+              ? path.join(baseDir, result.file)
+              : path.join(process.cwd(), baseDir, result.file);
+            await ctx.replyWithDocument({ source: filePath, filename: result.file });
+          } catch {
+            // Если не получилось, отправим ссылку
+            await ctx.reply(`Счёт готов: ${result.url}`);
+          }
+        } else {
+          await ctx.reply('Не удалось сгенерировать счёт. Попробуйте позже.');
+        }
+      } catch (e) {
+        await ctx.reply('Произошла ошибка при генерации счёта. Попробуйте позже.');
+      }
+      return;
     }
   }
 };

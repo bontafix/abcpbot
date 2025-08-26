@@ -9,6 +9,10 @@ interface Client {
   phone: string;
   name: string;
   address?: string | null;
+  org_inn?: string | null;
+  org_title?: string | null;
+  org_ogrn?: string | null;
+  org_address?: string | null;
   datetime: Date;
 }
 
@@ -36,12 +40,16 @@ export const ClientRepository = {
     }
   },
 
-  async update(telegramId: string, data: Partial<Pick<Client, 'name' | 'phone' | 'address'>>) {
+  async update(telegramId: string, data: Partial<Pick<Client, 'name' | 'phone' | 'address' | 'org_inn' | 'org_title' | 'org_ogrn' | 'org_address'>>) {
     try {
       const updateData: any = {};
       if (typeof data.name === 'string' && data.name.trim() !== '') updateData.name = data.name.trim();
       if (typeof data.phone === 'string' && data.phone.trim() !== '') updateData.phone = data.phone.trim();
       if (typeof data.address === 'string' && data.address.trim() !== '') updateData.address = data.address.trim();
+      if (typeof data.org_inn === 'string' && data.org_inn.trim() !== '') updateData.org_inn = data.org_inn.trim();
+      if (typeof data.org_title === 'string' && data.org_title.trim() !== '') updateData.org_title = data.org_title.trim();
+      if (typeof data.org_ogrn === 'string' && data.org_ogrn.trim() !== '') updateData.org_ogrn = data.org_ogrn.trim();
+      if (typeof data.org_address === 'string' && data.org_address.trim() !== '') updateData.org_address = data.org_address.trim();
       if (Object.keys(updateData).length === 0) {
         return { success: false, message: 'Нет данных для обновления.' };
       }
