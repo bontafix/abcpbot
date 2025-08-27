@@ -13,11 +13,11 @@ const ALLOWED_TRANSITIONS: Record<OrderStatus, ReadonlyArray<OrderStatus>> = {
 
 // Переходы для администратора: разрешаем любой статус → любой другой статус
 const ADMIN_TRANSITIONS: Record<OrderStatus, ReadonlyArray<OrderStatus>> = {
-  new: ['in_progress', 'rejected', 'completed', 'reserved'],
-  in_progress: ['new', 'rejected', 'completed', 'reserved'],
-  reserved: ['new', 'in_progress', 'rejected', 'completed'],
-  completed: ['new', 'in_progress', 'rejected', 'reserved'],
-  rejected: ['new', 'in_progress', 'completed', 'reserved'],
+  new: ['new', 'in_progress', 'rejected', 'completed', 'reserved'],
+  in_progress: ['new', 'in_progress', 'rejected', 'completed', 'reserved'],
+  reserved: ['new', 'in_progress', 'rejected', 'completed', 'reserved'],
+  completed: ['new', 'in_progress', 'rejected', 'completed', 'reserved'],
+  rejected: ['new', 'in_progress', 'rejected', 'completed', 'reserved'],
 };
 
 export function canTransitionStatus(current: string, target: string): boolean {
@@ -43,6 +43,7 @@ export function canTransitionStatusAdmin(current: string, target: string): boole
   const c = (current || '').toLowerCase() as OrderStatus;
   const t = (target || '').toLowerCase() as OrderStatus;
   if (!isKnownStatus(c) || !isKnownStatus(t)) return false;
+  console.log('ADMIN_TRANSITIONS', ADMIN_TRANSITIONS[c], t);
   return (ADMIN_TRANSITIONS[c] || []).includes(t);
 }
 
