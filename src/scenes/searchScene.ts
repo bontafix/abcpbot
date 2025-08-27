@@ -328,7 +328,8 @@ async function showAnalogArticles(ctx: MyContext) {
     return;
   }
 
-  await ctx.reply(`🔸 *Оригинальные замены (${analogArticles.length}):*`, {
+  const { replySafe } = await import('../utils/replySafe');
+  await replySafe(ctx, `🔸 *Оригинальные замены (${analogArticles.length}):*`, {
     parse_mode: 'Markdown'
   });
 
@@ -428,8 +429,9 @@ function getOrderInlineKeyboard(a: any) {
 }
 
 async function sendItems(ctx: MyContext, items: any[]) {
+  const { replySafe } = await import('../utils/replySafe');
   for (const a of items) {
-    await ctx.reply(renderPublicItem(a), {
+    await replySafe(ctx, renderPublicItem(a), {
       parse_mode: 'Markdown',
       reply_markup: getOrderInlineKeyboard(a)
     } as any);
@@ -438,7 +440,8 @@ async function sendItems(ctx: MyContext, items: any[]) {
 
 async function replyAnalogsButton(ctx: MyContext, analogCount: number) {
   if (analogCount <= 0) return;
-  await ctx.reply(`Найдены аналоги: ${analogCount}`, {
+  const { replySafe } = await import('../utils/replySafe');
+  await replySafe(ctx, `Найдены аналоги: ${analogCount}`, {
     parse_mode: 'Markdown',
     reply_markup: {
       inline_keyboard: [[

@@ -43,7 +43,8 @@ async function replyPage(ctx: AnyContext) {
   const pageIndex = clamp(Number(s.pageIndex ?? 0), 0, lastIndex);
   s.pageIndex = pageIndex;
 
-  await ctx.reply(PAGES[pageIndex], {
+  const { replySafe } = await import('../utils/replySafe');
+  await replySafe(ctx, PAGES[pageIndex], {
     reply_markup: getHelpKeyboard(),
     parse_mode: 'Markdown'
   } as any);

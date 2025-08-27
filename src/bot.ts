@@ -124,10 +124,34 @@ bot.use(session({ store: redisSessionStore, defaultSession: () => ({}) }));
 // RBAC: добавляем роли в контекст
 bot.use(attachRoles);
 bot.use(stage.middleware());
+// Глобальный обработчик ошибок, чтобы бот не "зависал"
+bot.catch(async (err, ctx) => {
+  try {
+    console.error('[Telegraf] Unhandled error:', err);
+    // Не пытаемся отвечать в группах и при сетевых/парсинг ошибках
+    const isParseError = err instanceof Error && /can't parse entities/i.test(err.message);
+    if (ctx?.chat?.type === 'private' && isParseError) {
+      try {
+        await ctx.reply('⚠️ Не удалось отправить форматированное сообщение. Отправляю без форматирования.');
+      } catch {}
+    }
+  } catch (e) {
+    console.error('Ошибка в bot.catch:', e);
+  }
+});
+
+// Утилита безопасной отправки (фолбэк при ошибке парсинга Markdown/HTML)
+export { replySafe } from './utils/replySafe';
 
 
+// Устанавливаем команды для групп
+
+
+// Middleware для игнорирования всех команд в группах
 bot.use((ctx, next) => {
-  // console.log('Получен апдейт:', ctx.update);
+  if (ctx.chat?.type && ctx.chat.type !== 'private') {
+    return; // Игнорируем все команды и сообщения не из приватных чатов
+  }
   return next();
 });
 
@@ -138,13 +162,13 @@ bot.use((ctx, next) => {
   return next(); // Продолжаем обработку
 });
 
-// Блокируем работу бота в группах и супергруппах
-bot.use((ctx, next) => {
-  if (ctx.chat?.type && ctx.chat.type !== 'private') {
-    return; // Игнорируем все апдейты не из приватных чатов
-  }
-  return next();
-});
+// Удаляем middleware, игнорирующий сообщения в группах
+// bot.use((ctx, next) => {
+//   if (ctx.chat?.type && ctx.chat.type !== 'private') {
+//     return; // Игнорируем все апдейты не из приватных чатов
+//   }
+//   return next();
+// });
 
 bot.start(async (ctx) => {
   const telegramId = String(ctx.message.from.id);
@@ -247,10 +271,105 @@ bot.command('ver', async (ctx) => {
   await ctx.reply(`Версия: ${version} (${modifiedTime})`);
 });
 
+// Временная команда для диагностики уведомлений
+bot.command('testnotify', async (ctx) => {
+  try {
+    const text = (ctx.message && 'text' in ctx.message) ? (ctx.message.text || '') : '';
+    const parts = text.trim().split(/\s+/);
+    const argChatId = parts.length > 1 ? parts[1] : '';
+
+    const targetChatId = argChatId || process.env.REGISTRATION_NOTIFY_CHAT_ID || process.env.TEST_CHAT_ID;
+
+    if (!targetChatId) {
+      await ctx.reply(`⚠️ Не задан Chat ID для теста.
+
+Использование:
+/testnotify <chat_id>
+
+Либо настройте переменную окружения:
+REGISTRATION_NOTIFY_CHAT_ID=<chat_id>`);
+      return;
+    }
+
+    const { OrderRepository } = await import('./repositories/orderRepository');
+    const result = await OrderRepository.testNotification(targetChatId);
+
+    await ctx.reply(result.success ? `✅ Тестовое сообщение отправлено в ${targetChatId}` : `❌ Ошибка: ${result.message}`);
+  } catch (error) {
+    console.error('Ошибка в команде testnotify:', error);
+    await ctx.reply(`❌ Ошибка: ${error instanceof Error ? error.message : String(error)}`);
+  }
+});
+
+// Команда для установки Chat ID группы
+bot.command('setnotifychat', async (ctx) => {
+  try {
+    const text = (ctx.message && 'text' in ctx.message) ? (ctx.message.text || '') : '';
+    const parts = text.trim().split(/\s+/);
+    const argChatId = parts.length > 1 ? parts[1] : '';
+
+    if (!argChatId) {
+      await ctx.reply(`Укажите Chat ID группы.
+
+Использование: /setnotifychat <chat_id>
+
+Затем добавьте в .env:
+\`\`\`
+REGISTRATION_NOTIFY_CHAT_ID=<chat_id>
+\`\`\`
+или выполните в терминале:
+\`\`\`
+export REGISTRATION_NOTIFY_CHAT_ID="<chat_id>"
+\`\`\``);
+      return;
+    }
+
+    const message = `✅ Chat ID группы: \`${argChatId}\`
+
+📋 Добавьте в файл \`.env.dev\`:
+\`\`\`
+REGISTRATION_NOTIFY_CHAT_ID=${argChatId}
+\`\`\`
+
+Или выполните в терминале:
+\`\`\`
+export REGISTRATION_NOTIFY_CHAT_ID="${argChatId}"
+\`\`\`
+
+После настройки все новые заказы и регистрации будут приходить в эту группу.`;
+
+    await ctx.reply(message);
+  } catch (error) {
+    console.error('Ошибка в команде setnotifychat:', error);
+    await ctx.reply(`❌ Ошибка: ${error instanceof Error ? error.message : String(error)}`);
+  }
+});
+
+bot.command('getchatid', async (ctx) => {
+  try {
+    const chatId = ctx.chat?.id?.toString();
+    const chatType = ctx.chat?.type;
+
+    let message = `📍 Информация о чате:
+Chat ID: \`${chatId}\`
+Тип: ${chatType}`;
+
+    await ctx.reply(message);
+  } catch (error) {
+    console.error('Ошибка в команде getchatid:', error);
+    await ctx.reply(`❌ Ошибка: ${error instanceof Error ? error.message : String(error)}`);
+  }
+});
 
 
 (async () => {
   try {
+    // Сначала очищаем команды в дефолтном и групповых скоупах,
+    // чтобы в группах подсказки по '/' не отображались
+    await bot.telegram.setMyCommands([], { scope: { type: 'default' } });
+    await bot.telegram.setMyCommands([], { scope: { type: 'all_group_chats' } });
+    await bot.telegram.setMyCommands([], { scope: { type: 'all_chat_administrators' } });
+
     await bot.telegram.setMyCommands([
       { command: 'start', description: 'Начало' },
       { command: 'search', description: 'Поиск' },
@@ -258,10 +377,19 @@ bot.command('ver', async (ctx) => {
       // { command: 'menu', description: 'Меню' },
       { command: 'help', description: 'Помощь' },
       { command: 'ver', description: 'Версия' },
+      { command: 'testnotify', description: 'Тест уведомлений' },
+      { command: 'setnotifychat', description: 'Настроить Chat ID группы' },
     ], { scope: { type: 'all_private_chats' } });
 
-    // Убираем команды в группах/супергруппах
-    await bot.telegram.setMyCommands([], { scope: { type: 'all_group_chats' } });
+    // await bot.telegram.setMyCommands([
+    //   { command: 'start', description: 'Начало' },
+    //   { command: 'search', description: 'Поиск' },
+    //   { command: 'order', description: 'Заказы' },
+    //   { command: 'help', description: 'Помощь' },
+    //   { command: 'ver', description: 'Версия' },
+    //   { command: 'testnotify', description: 'Тест уведомлений' },
+    //   { command: 'setnotifychat', description: 'Настроить Chat ID группы' },
+    // ], { scope: { type: 'all_group_chats' } });
   } catch (e) {
     console.error('Не удалось установить команды бота:', e);
   }

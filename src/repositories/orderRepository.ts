@@ -3,6 +3,7 @@ import { order } from '../models';
 import { and, eq, gte, desc } from 'drizzle-orm';
 import { canTransitionStatus, canDeleteByStatus, isKnownStatus, canTransitionStatusAdmin } from '../utils/orderStatusRules';
 import { DatabaseError } from 'pg';
+import { bot } from '../bot';
 
 export interface OrderItem {
   number: string;
@@ -30,7 +31,22 @@ export interface OrderRow {
 export const OrderRepository = {
   async create(telegramId: string, items: OrderItem[], description: string | undefined, name: string, phone: string) {
     try {
-      await db.insert(order).values({ telegram_id: telegramId, items, description, name, phone });
+      const result = await db.insert(order).values({ telegram_id: telegramId, items, description, name, phone }).returning({ id: order.id });
+      const orderId = result[0]?.id;
+
+      if (orderId) {
+        // Отправляем уведомление о новом заказе
+        await this.sendOrderNotification({
+          id: orderId,
+          telegramId,
+          name,
+          phone,
+          items,
+          description: description || null,
+          deliveryMethod: description // description содержит информацию о доставке
+        });
+      }
+
       return { success: true, message: 'Заказ создан.' };
     } catch (error) {
       if (error instanceof DatabaseError) {
@@ -163,6 +179,98 @@ export const OrderRepository = {
     } catch (error) {
       console.error('Ошибка при удалении заказов пользователя:', error);
       return { success: false, message: 'Не удалось удалить заказы.' };
+    }
+  },
+
+  // Функция для отправки уведомления о новом заказе в группу
+  async sendOrderNotification(orderData: {
+    id: number;
+    telegramId: string;
+    name: string;
+    phone: string;
+    items: OrderItem[];
+    description: string | null;
+    deliveryMethod?: string;
+  }) {
+    try {
+      const notifyChatId = process.env.REGISTRATION_NOTIFY_CHAT_ID || process.env.TEST_CHAT_ID;
+      console.log('🔍 Проверка переменных окружения:');
+      console.log('REGISTRATION_NOTIFY_CHAT_ID:', process.env.REGISTRATION_NOTIFY_CHAT_ID);
+      console.log('TEST_CHAT_ID:', process.env.TEST_CHAT_ID);
+      console.log('notifyChatId:', notifyChatId);
+
+      if (!notifyChatId) {
+        console.log('❌ REGISTRATION_NOTIFY_CHAT_ID не настроен, уведомление не отправлено');
+        console.log('📝 Доступные переменные окружения:', Object.keys(process.env).filter(key =>
+          key.includes('CHAT') || key.includes('TELEGRAM') || key.includes('BOT')
+        ));
+        return;
+      }
+
+      // Проверяем формат Chat ID
+      const chatIdNum = parseInt(notifyChatId);
+      if (isNaN(chatIdNum)) {
+        console.error('❌ Неверный формат Chat ID:', notifyChatId);
+        return;
+      }
+
+      console.log('📤 Отправка сообщения в чат:', notifyChatId);
+
+      const userRef = `tg://user?id=${orderData.telegramId}`;
+      const itemsText = orderData.items.map(item =>
+        `• ${item.brand || ''} ${item.number} - ${item.title} (${item.count} шт.)`
+      ).join('\n');
+
+      const totalPrice = orderData.items.reduce((sum, item) => sum + (item.price * item.count), 0);
+
+      const message = `🆕 Новый заказ #${orderData.id}
+
+👤 Клиент: ${orderData.name}
+📞 Телефон: ${orderData.phone}
+🔗 Telegram: ${userRef}
+📦 ID: ${orderData.telegramId}
+
+📋 Товары:
+${itemsText}
+
+💰 Сумма: ${totalPrice.toLocaleString('ru-RU')} ₽
+🚚 Доставка: ${orderData.deliveryMethod || 'Не указана'}${orderData.description ? `\n📝 Комментарий: ${orderData.description}` : ''}`;
+
+      console.log('📨 Отправка сообщения:', message.substring(0, 100) + '...');
+
+      await bot.telegram.sendMessage(notifyChatId, message);
+      console.log(`✅ Уведомление о заказе #${orderData.id} отправлено в группу ${notifyChatId}`);
+    } catch (error) {
+      console.error('❌ Ошибка при отправке уведомления о заказе:', error);
+      console.error('Детали ошибки:', {
+        message: error instanceof Error ? error.message : String(error),
+        code: error instanceof Error ? (error as any).code : 'unknown',
+        response: error instanceof Error ? (error as any).response?.body : undefined
+      });
+    }
+  },
+
+  // Диагностическая функция для проверки отправки сообщений
+  async testNotification(chatId?: string) {
+    try {
+      const testChatId = chatId || process.env.REGISTRATION_NOTIFY_CHAT_ID || process.env.TEST_CHAT_ID;
+      if (!testChatId) {
+        console.error('❌ Нет Chat ID для тестирования');
+        return { success: false, message: 'Chat ID не настроен' };
+      }
+
+      console.log('🧪 Тестирование отправки в чат:', testChatId);
+
+      const testMessage = `🧪 Тестовое сообщение
+Время: ${new Date().toLocaleString('ru-RU')}
+Chat ID: ${testChatId}`;
+
+      await bot.telegram.sendMessage(testChatId, testMessage);
+      console.log('✅ Тестовое сообщение отправлено успешно');
+      return { success: true, message: 'Тестовое сообщение отправлено' };
+    } catch (error) {
+      console.error('❌ Ошибка при отправке тестового сообщения:', error);
+      return { success: false, message: error instanceof Error ? error.message : String(error) };
     }
   },
 };
