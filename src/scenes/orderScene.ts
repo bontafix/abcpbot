@@ -286,7 +286,7 @@ const orderStep5 = async (ctx: AnyContext) => {
         if ((ctx.from?.id) && s.number && s.title && s.quantity && typeof s.price === 'number') {
           const telegramId2 = String(ctx.from.id);
           const { OrderRepository } = await import('../repositories/orderRepository');
-          const deliveryText = s.deliveryMethod === 'pickup' ? 'Доставка: Самовывоз' : `Доставка: пункт Сдек:${s.address || ''}`;
+          const deliveryText = s.deliveryMethod === 'pickup' ? 'Самовывоз' : `Доставка: пункт Сдек:${s.address || ''}`;
           await OrderRepository.create(telegramId2, [
             { number: String(s.number), title: String(s.title), count: Number(s.quantity), price: Number(s.price), brand: String(s.brand || ''), distributorId: String(s.distributorId || ''), supplierCode: String(s.supplierCode || ''), lastUpdateTime: String(s.lastUpdateTime || '') }
           ], deliveryText, String(s.contactName || ''), String(s.contactPhone || ''));
@@ -316,7 +316,7 @@ const orderStep5 = async (ctx: AnyContext) => {
         if ((ctx.from?.id) && s.number && s.title && s.quantity && typeof s.price === 'number') {
           const telegramId = String(ctx.from.id);
           const { OrderRepository } = await import('../repositories/orderRepository');
-          const deliveryText = s.deliveryMethod === 'pickup' ? 'Доставка: Самовывоз' : `Доставка: пункт Сдек:${s.address || ''}`;
+          const deliveryText = s.deliveryMethod === 'pickup' ? 'Самовывоз' : `Доставка: пункт Сдек:${s.address || ''}`;
           await OrderRepository.create(telegramId, [
             { number: String(s.number), title: String(s.title), count: Number(s.quantity), price: Number(s.price), brand: String(s.brand || ''), distributorId: String(s.distributorId || ''), supplierCode: String(s.supplierCode || ''), lastUpdateTime: String(s.lastUpdateTime || '') }
           ], deliveryText, String(s.contactName || ''), String(s.contactPhone || ''));
@@ -333,7 +333,7 @@ const orderStep5 = async (ctx: AnyContext) => {
         if ((ctx.from?.id) && s.number && s.title && s.quantity && typeof s.price === 'number') {
           const telegramId = String(ctx.from.id);
           const { OrderRepository } = await import('../repositories/orderRepository');
-          const deliveryText = s.deliveryMethod === 'pickup' ? 'Доставка: Самовывоз' : `Доставка: пункт Сдек:${s.address || ''}`;
+          const deliveryText = s.deliveryMethod === 'pickup' ? 'Самовывоз' : `Доставка: пункт Сдек:${s.address || ''}`;
           await OrderRepository.create(telegramId, [
             { number: String(s.number), title: String(s.title), count: Number(s.quantity), price: Number(s.price), brand: String(s.brand || ''), distributorId: String(s.distributorId || ''), supplierCode: String(s.supplierCode || ''), lastUpdateTime: String(s.lastUpdateTime || '') }
           ], deliveryText, String(s.contactName || ''), String(s.contactPhone || ''));

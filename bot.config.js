@@ -4,6 +4,7 @@ module.exports = {
       name: 'abcp-prod',
       script: './dist/server.js',
       cwd: './',
+      watch: false,
       env: {
         NODE_ENV: 'production'
       }
