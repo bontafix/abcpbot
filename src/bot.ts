@@ -377,8 +377,8 @@ Chat ID: \`${chatId}\`
       // { command: 'menu', description: 'Меню' },
       { command: 'help', description: 'Помощь' },
       { command: 'ver', description: 'Версия' },
-      { command: 'testnotify', description: 'Тест уведомлений' },
-      { command: 'setnotifychat', description: 'Настроить Chat ID группы' },
+      // { command: 'testnotify', description: 'Тест уведомлений' },
+      // { command: 'setnotifychat', description: 'Настроить Chat ID группы' },
     ], { scope: { type: 'all_private_chats' } });
 
     // await bot.telegram.setMyCommands([
