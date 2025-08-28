@@ -25,6 +25,47 @@ ABCP_PASS=my_password
 DISTRIBUTORS_TTL_SECONDS=300
 ```
 
+Дополнительные переменные для контактов менеджера (используются кнопкой «Менеджер» в главном меню):
+
+- `MANAGER_PHONE`: номер телефона менеджера (например, `+1234567890`)
+- `MANAGER_TELEGRAM_ID`: Telegram ID менеджера (например, `USER_TELEGRAM_ID` или числовой ID)
+
+Пример:
+
+```
+MANAGER_PHONE=+1234567890
+MANAGER_TELEGRAM_ID=USER_TELEGRAM_ID
+```
+
+В режиме разработки переменные загружаются из файла `.env.dev` (см. `src/config/env.ts`).
+Можно взять шаблон `env.dev.example`, скопировать его как `.env.dev` и заполнить значениями.
+
+### Settings (.env + DB + Redis)
+
+Секреты (токены/пароли) храните в `.env`/секрет-менеджере. Не храните их в БД. 
+Нестрогие параметры (телефоны, реквизиты) храните в БД в таблице `bot_settings`.
+Кэширование чтения идёт через Redis.
+
+ENV переменные для сервиса настроек:
+
+```
+# Redis для кэша настроек
+REDIS_URL=redis://127.0.0.1:6379
+# TTL кэша настроек (секунды)
+SETTINGS_CACHE_TTL=90
+
+# Примеры секретов для ABCP (читать из env, не из БД)
+ABCP_BASE_URL=https://example.abcp.ru
+ABCP_CLIENT_ID=xxx
+ABCP_CLIENT_SECRET=xxx
+
+# Альтернативно можно переопределить отдельные ключи как SETTINGS_{category}_{key}
+# Например, SETTINGS_abcp_timeout_ms=10000
+```
+
+Категории настроек, редактируемые через админ-панель: `manager`, `abcp`, `bank`.
+Структура таблицы: `(category, key) -> value(JSONB)`, аудит — в `settings_audit`.
+
 
 To make it easy for you to get started with GitLab, here's a list of recommended next steps.
 

@@ -65,3 +65,24 @@ export const search_history = pgTable('search_history', {
     .notNull()
     .default(sql`now()`),
 });
+
+// Универсальные настройки бота: (category, key) -> value(JSON)
+export const bot_settings = pgTable('bot_settings', {
+  id: serial('id').primaryKey(),
+  category: varchar('category', { length: 64 }).notNull(),
+  key: varchar('key', { length: 128 }).notNull(),
+  value: jsonb('value').notNull(),
+  updated_at: timestamp('updated_at').notNull().default(sql`now()`),
+  updated_by: varchar('updated_by', { length: 50 }), // telegram_id пользователя
+});
+
+// Аудит изменений настроек
+export const settings_audit = pgTable('settings_audit', {
+  id: serial('id').primaryKey(),
+  category: varchar('category', { length: 64 }).notNull(),
+  key: varchar('key', { length: 128 }).notNull(),
+  old_value: jsonb('old_value'),
+  new_value: jsonb('new_value').notNull(),
+  updated_at: timestamp('updated_at').notNull().default(sql`now()`),
+  updated_by: varchar('updated_by', { length: 50 }),
+});

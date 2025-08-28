@@ -20,14 +20,16 @@ export async function getMainMenuUser() {
   return Markup.keyboard([
     [
       'Поиск', 'Профиль', 'Мои заказы',
-    ]
+    ],
+    ['Менеджер']
   ]).resize();
 }
 export async function getMainMenuGuest() {
 
   return Markup.keyboard([
     ['Поиск',
-     'Регистрация']
+     'Регистрация'],
+    ['Менеджер']
   ]).resize();
 }
 

@@ -6,6 +6,7 @@ import Redis from 'ioredis';
 // import axios from 'axios';
 import { message } from 'telegraf/filters';
 import { getMainMenuGuest, getMainMenuUser, getProfileMenu } from './menu';
+import { Markup } from 'telegraf';
 import { ClientRepository } from './repositories/clientRepository';
 import { UserRepository } from './repositories/userRepository';
 import searchWizard from './scenes/searchScene';
@@ -19,6 +20,10 @@ import helpScene from './scenes/helpScene';
 import adminScene from './scenes/adminScene';
 import adminClientsScene from './scenes/adminClientsScene';
 import adminDistributorsScene from './scenes/adminDistributorsScene';
+import adminSettingsScene from './scenes/adminSettingsScene';
+import adminSettingsManagerScene from './scenes/adminSettingsManagerScene';
+import adminSettingsAbcpScene from './scenes/adminSettingsAbcpScene';
+import adminSettingsBankScene from './scenes/adminSettingsBankScene';
 
 
 import { keyboard } from 'telegraf/typings/markup';
@@ -66,7 +71,23 @@ interface MyWizardSession extends Scenes.WizardSessionData {
 interface MyContext extends Scenes.WizardContext<MyWizardSession> { }
 
 // Создаём Stage
-const stage = new Scenes.Stage<MyContext>([searchWizard as any, orderScene as any, registrationScene as any, profileScene as any, ordersScene as any, ordersSummaryScene as any, infoScene as any, helpScene as any, adminScene as any, adminClientsScene as any, adminDistributorsScene as any]);
+const stage = new Scenes.Stage<MyContext>([
+  searchWizard as any,
+  orderScene as any,
+  registrationScene as any,
+  profileScene as any,
+  ordersScene as any,
+  ordersSummaryScene as any,
+  infoScene as any,
+  helpScene as any,
+  adminScene as any,
+  adminClientsScene as any,
+  adminDistributorsScene as any,
+  adminSettingsScene as any,
+  adminSettingsManagerScene as any,
+  adminSettingsAbcpScene as any,
+  adminSettingsBankScene as any,
+]);
 // Глобальная навигация внутри сцен: кнопка «Поиск»
 stage.hears('Поиск', async (ctx) => {
   try { await ctx.scene.leave(); } catch {}
@@ -237,6 +258,28 @@ bot.hears('Мои заказы', async (ctx) => {
 
 
 
+
+bot.hears('Менеджер', async (ctx) => {
+  const phone = process.env.MANAGER_PHONE || '+1234567890';
+  const userId = process.env.MANAGER_TELEGRAM_ID || 'USER_TELEGRAM_ID';
+  const text = `Связаться с менеджером: ${phone}`;
+  await ctx.reply(text, Markup.inlineKeyboard([
+    // Markup.button.callback('Показать телефон', 'manager_show_phone'),
+    Markup.button.url('Открыть в Telegram', `tg://user?id=${userId}`)
+  ]));
+});
+
+bot.action('manager_show_phone', async (ctx) => {
+  try {
+    const phone = (process.env.MANAGER_PHONE || '+1234567890').replace(/\s+/g, '');
+    await ctx.answerCbQuery(`Телефон: ${phone}`, { show_alert: true });
+    if (ctx.chat?.id) {
+      await ctx.telegram.sendContact(ctx.chat.id, phone, 'Менеджер');
+    }
+  } catch (e) {
+    // ignore
+  }
+});
 
 // bot.hears('text', async (ctx) => {
 //   console.log(ctx.message.text)

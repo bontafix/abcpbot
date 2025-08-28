@@ -10,6 +10,7 @@ const adminStep = async (ctx: AnyContext) => {
       inline_keyboard: [
         [ { text: 'Список клиентов', callback_data: 'admin:clients' } ],
         [ { text: 'Список поставщиков', callback_data: 'admin:distributors' } ],
+        [ { text: 'Настройки бота', callback_data: 'admin:settings' } ],
         [ { text: '⏹ Закрыть', callback_data: 'admin:close' } ],
       ],
     },
@@ -43,6 +44,17 @@ const adminActionStep = async (ctx: AnyContext) => {
         return ctx.scene.enter('admin_distributors');
       } catch (error) {
         console.error('Ошибка при переходе в сцену поставщиков:', error);
+        await ctx.reply('Ошибка при переходе. Попробуйте команду /admin');
+      }
+    }
+
+    if (data === 'admin:settings') {
+      try {
+        await ctx.scene.leave();
+        // @ts-ignore
+        return ctx.scene.enter('admin_settings');
+      } catch (error) {
+        console.error('Ошибка при переходе в сцену настроек:', error);
         await ctx.reply('Ошибка при переходе. Попробуйте команду /admin');
       }
     }
