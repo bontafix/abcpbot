@@ -1,4 +1,5 @@
 import { Scenes } from 'telegraf';
+import { showAdminHeader, deleteUserMessage } from '../utils/adminUi';
 import { SettingsService } from '../services/settingsService';
 import { ManagerSettings, ManagerFieldOrder, validateManagerField } from '../utils/validation';
 
@@ -21,6 +22,7 @@ async function showCurrent(ctx: AnyContext) {
 }
 
 const step1 = async (ctx: AnyContext) => {
+  await showAdminHeader(ctx, 'Настройки бота — Менеджер');
   (ctx.wizard.state as any).idx = 0;
   await showCurrent(ctx);
   const field = ManagerFieldOrder[0];
@@ -30,6 +32,7 @@ const step1 = async (ctx: AnyContext) => {
 
 const stepInput = async (ctx: AnyContext) => {
   if (ctx.message && 'text' in ctx.message) {
+    await deleteUserMessage(ctx);
     const t = (ctx.message.text || '').trim();
     if (t === 'Отмена') {
       try { await ctx.scene.leave(); } catch {}

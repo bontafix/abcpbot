@@ -1,6 +1,7 @@
 import { Scenes } from 'telegraf';
 import { SettingsService } from '../services/settingsService';
 import { AbcpSettings, AbcpFieldOrder, validateAbcpField } from '../utils/validation';
+import { showAdminHeader, deleteUserMessage } from '../utils/adminUi';
 
 type AnyContext = Scenes.WizardContext & { scene: any; wizard: any };
 
@@ -21,6 +22,7 @@ async function showCurrent(ctx: AnyContext) {
 }
 
 const step1 = async (ctx: AnyContext) => {
+  await showAdminHeader(ctx, 'Настройки бота — Abcp');
   (ctx.wizard.state as any).idx = 0;
   await showCurrent(ctx);
   const field = AbcpFieldOrder[0];
@@ -30,6 +32,7 @@ const step1 = async (ctx: AnyContext) => {
 
 const stepInput = async (ctx: AnyContext) => {
   if (ctx.message && 'text' in ctx.message) {
+    await deleteUserMessage(ctx);
     const t = (ctx.message.text || '').trim();
     if (t === 'Отмена') {
       try { await ctx.scene.leave(); } catch {}

@@ -1,10 +1,12 @@
 import { Scenes } from 'telegraf';
+import { showAdminHeader, clearAdminHeader } from '../utils/adminUi';
 
 type AnyContext = Scenes.SceneContext & { scene: any };
 
 const adminStep = async (ctx: AnyContext) => {
   // console.log('Вход в админ сцену');
-  const text = 'Админ-панель:\n\nВыберите действие:';
+  await showAdminHeader(ctx, 'Админ-панель');
+  const text = 'Выберите действие:';
   await ctx.reply(text, {
     reply_markup: {
       inline_keyboard: [
@@ -63,6 +65,7 @@ const adminActionStep = async (ctx: AnyContext) => {
       console.log('Выход из админ-панели');
       try {
         await ctx.scene.leave();
+        await clearAdminHeader(ctx);
         await ctx.reply('Вы вышли из админ-панели.');
       } catch (error) {
         console.error('Ошибка при выходе из админ сцены:', error);

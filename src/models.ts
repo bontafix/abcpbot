@@ -46,6 +46,7 @@ export const order = pgTable('order', {
   name: varchar('name', { length: 255 }).notNull(),
   phone: varchar('phone', { length: 20 }).notNull(),
   description: text('description'),
+  delivery: text('delivery'),
   items: jsonb('items').notNull(),
   status: varchar('status', { length: 32 }).notNull().default('new'),
   status_datetime: timestamp('status_datetime')

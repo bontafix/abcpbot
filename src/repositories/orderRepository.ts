@@ -14,6 +14,7 @@ export interface OrderItem {
   distributorId?: string;
   supplierCode?: string;
   lastUpdateTime?: string;
+  comment?: string;
 }
 
 export interface OrderRow {
@@ -22,6 +23,7 @@ export interface OrderRow {
   name: string;
   phone: string;
   description: string | null;
+  delivery?: string | null;
   items: OrderItem[];
   status: string;
   status_datetime: Date;
@@ -29,9 +31,9 @@ export interface OrderRow {
 }
 
 export const OrderRepository = {
-  async create(telegramId: string, items: OrderItem[], description: string | undefined, name: string, phone: string) {
+  async create(telegramId: string, items: OrderItem[], delivery: string | undefined, name: string, phone: string, description?: string) {
     try {
-      const result = await db.insert(order).values({ telegram_id: telegramId, items, description, name, phone }).returning({ id: order.id });
+      const result = await db.insert(order).values({ telegram_id: telegramId, items, description: description ?? null, delivery, name, phone }).returning({ id: order.id });
       const orderId = result[0]?.id;
 
       if (orderId) {
@@ -42,8 +44,8 @@ export const OrderRepository = {
           name,
           phone,
           items,
-          description: description || null,
-          deliveryMethod: description // description содержит информацию о доставке
+          description: description ?? null,
+          deliveryMethod: delivery
         });
       }
 
@@ -218,7 +220,7 @@ export const OrderRepository = {
 
       const userRef = `tg://user?id=${orderData.telegramId}`;
       const itemsText = orderData.items.map(item =>
-        `• ${item.brand || ''} ${item.number} - ${item.title} (${item.count} шт.)`
+        `• ${item.brand || ''} ${item.number} - ${item.title} (${item.count} шт.)${item.comment ? `\n   💬 ${item.comment}` : ''}`
       ).join('\n');
 
       const totalPrice = orderData.items.reduce((sum, item) => sum + (item.price * item.count), 0);
@@ -234,7 +236,7 @@ export const OrderRepository = {
 ${itemsText}
 
 💰 Сумма: ${totalPrice.toLocaleString('ru-RU')} ₽
-🚚 Доставка: ${orderData.deliveryMethod || 'Не указана'}${orderData.description ? `\n📝 Комментарий: ${orderData.description}` : ''}`;
+🚚 Доставка: ${orderData.deliveryMethod || 'Не указана'}`;
 
       console.log('📨 Отправка сообщения:', message.substring(0, 100) + '...');
 

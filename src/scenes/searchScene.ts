@@ -213,7 +213,7 @@ const step3 = async (ctx: MyContext) => {
     const data = (ctx.callbackQuery as any).data as string;
 
     // Обработка кнопки «Новый поиск» → показываем меню поиска на шаге ввода
-    if (data === 'restart_search') {
+    if (data === 'restart_search' || data === 'restart') {
       await ctx.answerCbQuery();
       const s = ctx.wizard.state as SearchWizardState;
       if (s) {
@@ -222,16 +222,8 @@ const step3 = async (ctx: MyContext) => {
         delete s.selectedBrandNumber;
         delete s.analogArticles;
       }
-      await ctx.reply('Введите код запчасти:', {
-        reply_markup: {
-          keyboard: [[{ text: 'История' }, { text: 'Назад' }]],
-          resize_keyboard: true,
-          one_time_keyboard: false,
-        } as any,
-      } as any);
-      // Переходим к шагу 2 (обработчик ввода и меню)
-      ctx.wizard.selectStep(1);
-      return;
+      // Переходим к первому шагу (ввод кода запчасти)
+      return ctx.wizard.selectStep(0);
     }
 
     // Обработка кнопки «Показать аналоги»
@@ -259,10 +251,12 @@ const step3 = async (ctx: MyContext) => {
     // Обработка кнопки «Заказать»
     if (data.startsWith('order:')) {
       await ctx.answerCbQuery();
+      
       const [, brand, number, availabilityRaw] = data.split(':');
       const availability = availabilityRaw ? Number(availabilityRaw) : undefined;
       const key2 = `${brand}:${number}`;
       const details = (state.itemDetails || {})[key2] || { title: '', price: 0 };
+      
       await ctx.scene.enter('order' as any, {
         brand,
         number,
@@ -358,6 +352,8 @@ const searchWizard = new Scenes.WizardScene<MyContext>(
   step3
 );
 
+
+
 // Утилита форматирования цены
 function formatPrice(value: unknown): string {
   const num = Number(value);
@@ -418,12 +414,24 @@ function updateItemDetails(state: SearchWizardState, articles: any[]) {
   }
 }
 
+
+
+// Функция для создания inline клавиатуры для товара
 function getOrderInlineKeyboard(a: any) {
   return {
     inline_keyboard: [[
-      { text: 'Заказать', callback_data: `order:${a.brand}:${a.number}:${a.availability ?? ''}` },
-      // { text: 'Инфо', callback_data: `info:${a.brand}:${a.number}` },
-      { text: 'Новый поиск', callback_data: 'restart_search' }
+      { text: '🛒 Заказать', callback_data: `order:${a.brand}:${a.number}:${a.availability ?? ''}` },
+      { text: '🔄 Новый поиск', callback_data: 'restart_search' }
+    ]]
+  } as any;
+}
+
+// Функция для создания inline клавиатуры для аналогов
+function getAnalogsInlineKeyboard(analogCount: number) {
+  return {
+    inline_keyboard: [[
+      { text: `📋 Показать аналоги (${analogCount})`, callback_data: 'show_analogs' },
+      { text: '🔄 Новый поиск', callback_data: 'restart_search' }
     ]]
   } as any;
 }
@@ -440,15 +448,11 @@ async function sendItems(ctx: MyContext, items: any[]) {
 
 async function replyAnalogsButton(ctx: MyContext, analogCount: number) {
   if (analogCount <= 0) return;
+  
   const { replySafe } = await import('../utils/replySafe');
   await replySafe(ctx, `Найдены аналоги: ${analogCount}`, {
     parse_mode: 'Markdown',
-    reply_markup: {
-      inline_keyboard: [[
-        { text: `📋 Показать аналоги`, callback_data: 'show_analogs' },
-        { text: 'Новый поиск', callback_data: 'restart_search' }
-      ]]
-    }
+    reply_markup: getAnalogsInlineKeyboard(analogCount)
   } as any);
 }
 

@@ -24,6 +24,7 @@ import adminSettingsScene from './scenes/adminSettingsScene';
 import adminSettingsManagerScene from './scenes/adminSettingsManagerScene';
 import adminSettingsAbcpScene from './scenes/adminSettingsAbcpScene';
 import adminSettingsBankScene from './scenes/adminSettingsBankScene';
+import adminSettingsHelpScene from './scenes/adminSettingsHelpScene';
 
 
 import { keyboard } from 'telegraf/typings/markup';
@@ -87,6 +88,7 @@ const stage = new Scenes.Stage<MyContext>([
   adminSettingsManagerScene as any,
   adminSettingsAbcpScene as any,
   adminSettingsBankScene as any,
+  adminSettingsHelpScene as any,
 ]);
 // Глобальная навигация внутри сцен: кнопка «Поиск»
 stage.hears('Поиск', async (ctx) => {

@@ -18,6 +18,7 @@ interface OrderWizardState {
   lastUpdateTime?: string;
   contactName?: string;
   contactPhone?: string;
+  itemComment?: string;
 }
 
 type ClientInfo = {
@@ -281,20 +282,11 @@ const orderStep5 = async (ctx: AnyContext) => {
       s.contactName = name;
       s.contactPhone = phone;
 
-      // Сохраняем заказ
-      try {
-        if ((ctx.from?.id) && s.number && s.title && s.quantity && typeof s.price === 'number') {
-          const telegramId2 = String(ctx.from.id);
-          const { OrderRepository } = await import('../repositories/orderRepository');
-          const deliveryText = s.deliveryMethod === 'pickup' ? 'Самовывоз' : `Доставка: пункт Сдек:${s.address || ''}`;
-          await OrderRepository.create(telegramId2, [
-            { number: String(s.number), title: String(s.title), count: Number(s.quantity), price: Number(s.price), brand: String(s.brand || ''), distributorId: String(s.distributorId || ''), supplierCode: String(s.supplierCode || ''), lastUpdateTime: String(s.lastUpdateTime || '') }
-          ], deliveryText, String(s.contactName || ''), String(s.contactPhone || ''));
-        }
-      } catch (e) { /* noop */ }
-
-      await ctx.reply(`Заказ принят:\nБрэнд: ${s.brand}\nАртикул: ${s.number}\nКоличество: ${s.quantity}\nИмя: ${s.contactName}\nТелефон: ${s.contactPhone}\nДоставка: ${s.deliveryMethod === 'pickup' ? 'Самовывоз' : `Адрес\n${s.address}`}`);
-      return ctx.scene.enter('search' as any);
+      // Перед сохранением спросим комментарий
+      await ctx.reply('Добавьте комментарий к товару (или «-» если без комментария):');
+      // @ts-ignore
+      ctx.wizard.selectStep(5);
+      return;
     }
 
     if (data === 'contact_change') {
@@ -312,36 +304,18 @@ const orderStep5 = async (ctx: AnyContext) => {
         }
       } catch (e) { /* noop */ }
 
-      try {
-        if ((ctx.from?.id) && s.number && s.title && s.quantity && typeof s.price === 'number') {
-          const telegramId = String(ctx.from.id);
-          const { OrderRepository } = await import('../repositories/orderRepository');
-          const deliveryText = s.deliveryMethod === 'pickup' ? 'Самовывоз' : `Доставка: пункт Сдек:${s.address || ''}`;
-          await OrderRepository.create(telegramId, [
-            { number: String(s.number), title: String(s.title), count: Number(s.quantity), price: Number(s.price), brand: String(s.brand || ''), distributorId: String(s.distributorId || ''), supplierCode: String(s.supplierCode || ''), lastUpdateTime: String(s.lastUpdateTime || '') }
-          ], deliveryText, String(s.contactName || ''), String(s.contactPhone || ''));
-        }
-      } catch (e) { /* noop */ }
-
-      await ctx.reply(`Заказ принят:\nБрэнд: ${s.brand}\nАртикул: ${s.number}\nКоличество: ${s.quantity}\nИмя: ${s.contactName}\nТелефон: ${s.contactPhone}\nДоставка: ${s.deliveryMethod === 'pickup' ? 'Самовывоз' : `Адрес\n${s.address}`}`);
-      return ctx.scene.enter('search' as any);
+      await ctx.reply('Добавьте комментарий к товару (или «-» если без комментария):');
+      // @ts-ignore
+      ctx.wizard.selectStep(5);
+      return;
     }
 
     if (data === 'contact_save_no') {
       // Оформляем заказ без сохранения в профиль
-      try {
-        if ((ctx.from?.id) && s.number && s.title && s.quantity && typeof s.price === 'number') {
-          const telegramId = String(ctx.from.id);
-          const { OrderRepository } = await import('../repositories/orderRepository');
-          const deliveryText = s.deliveryMethod === 'pickup' ? 'Самовывоз' : `Доставка: пункт Сдек:${s.address || ''}`;
-          await OrderRepository.create(telegramId, [
-            { number: String(s.number), title: String(s.title), count: Number(s.quantity), price: Number(s.price), brand: String(s.brand || ''), distributorId: String(s.distributorId || ''), supplierCode: String(s.supplierCode || ''), lastUpdateTime: String(s.lastUpdateTime || '') }
-          ], deliveryText, String(s.contactName || ''), String(s.contactPhone || ''));
-        }
-      } catch (e) { /* noop */ }
-
-      await ctx.reply(`Заказ принят:\nБрэнд: ${s.brand}\nАртикул: ${s.number}\nКоличество: ${s.quantity}\nИмя: ${s.contactName}\nТелефон: ${s.contactPhone}\nДоставка: ${s.deliveryMethod === 'pickup' ? 'Самовывоз' : `Адрес\n${s.address}`}`);
-      return ctx.scene.enter('search' as any);
+      await ctx.reply('Добавьте комментарий к товару (или «-» если без комментария):');
+      // @ts-ignore
+      ctx.wizard.selectStep(5);
+      return;
     }
   }
 
@@ -357,23 +331,43 @@ const orderStep5 = async (ctx: AnyContext) => {
     s.contactPhone = phone;
 
     // Предложим сохранить новые данные в профиль
-    await ctx.reply(
-      'Сохранить эти контактные данные в профиле?',
-      {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: 'Да, сохранить', callback_data: 'contact_save_yes' },
-              { text: 'Нет', callback_data: 'contact_save_no' }
-            ]
+    await ctx.reply('Сохранить эти контактные данные в профиле?', {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: 'Да, сохранить', callback_data: 'contact_save_yes' },
+            { text: 'Нет', callback_data: 'contact_save_no' }
           ]
-        }
+        ]
       }
-    );
+    });
     return; // остаёмся на шаге 5, ждём выбор
   }
 
   await ctx.reply('Отправьте имя и телефон через перенос строки:\nИмя\n+79990000000');
+};
+
+// Шаг 6: принимаем комментарий и создаём заказ
+const orderStep6 = async (ctx: AnyContext) => {
+  const s = ctx.wizard.state as OrderWizardState;
+  if (ctx.message && 'text' in ctx.message) {
+    const comment = (ctx.message.text || '').trim();
+    s.itemComment = comment === '-' ? '' : comment;
+    try {
+      if ((ctx.from?.id) && s.number && s.title && s.quantity && typeof s.price === 'number') {
+        const telegramId = String(ctx.from.id);
+        const { OrderRepository } = await import('../repositories/orderRepository');
+        const deliveryText = s.deliveryMethod === 'pickup' ? 'Самовывоз' : `Пункт Сдек: ${s.address || ''}`;
+        await OrderRepository.create(telegramId, [
+          { number: String(s.number), title: String(s.title), count: Number(s.quantity), price: Number(s.price), brand: String(s.brand || ''), distributorId: String(s.distributorId || ''), supplierCode: String(s.supplierCode || ''), lastUpdateTime: String(s.lastUpdateTime || ''), comment: String(s.itemComment || '') }
+        ], deliveryText, String(s.contactName || ''), String(s.contactPhone || ''));
+      }
+    } catch (e) { /* noop */ }
+
+    await ctx.reply(`Заказ принят:\nБрэнд: ${s.brand}\nАртикул: ${s.number}\nКоличество: ${s.quantity}\nКомментарий: ${s.itemComment || '-'}\nИмя: ${s.contactName}\nТелефон: ${s.contactPhone}\nДоставка: ${s.deliveryMethod === 'pickup' ? 'Самовывоз' : `Адрес\n${s.address}`}`);
+    return ctx.scene.enter('search' as any);
+  }
+  await ctx.reply('Добавьте комментарий к товару (или «-» если без комментария):');
 };
 
 const orderScene = new Scenes.WizardScene<AnyContext>(
@@ -382,7 +376,8 @@ const orderScene = new Scenes.WizardScene<AnyContext>(
   orderStep2,
   orderStep3,
   orderStep4,
-  orderStep5
+  orderStep5,
+  orderStep6
 );
 
 export default orderScene;

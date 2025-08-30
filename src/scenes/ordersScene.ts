@@ -56,13 +56,13 @@ const ordersEnter = async (ctx: Scenes.WizardContext) => {
   for (const o of filtered as OrderRow[]) {
     const sum = (o.items || []).reduce((acc, it) => acc + Number(it.price || 0) * Number(it.count || 0), 0);
     const itemsText = (o.items || [])
-      .map(it => `${it.number} ${it.title} ${Number(it.count)} ${Number(it.price).toFixed(2)} ${(Number(it.price) * Number(it.count)).toFixed(2)}`)
+      .map(it => `${it.number} ${it.title} ${Number(it.count)} ${Number(it.price).toFixed(2)} ${(Number(it.price) * Number(it.count)).toFixed(2)}${it.comment ? `\n   💬 ${it.comment}` : ''}`)
       .join('\n');
     const statusLabel = STATUS_LABELS[String(o.status || '').toLowerCase()] || (o.status ?? '-');
     const msg =
       `Заказ #${o.id} • ${new Date(o.datetime).toLocaleString()}\n` +
       `Статус: ${statusLabel}\n` +
-      (o.description ? `💬 ${o.description}\n` : '') +
+      (o.delivery ? `🚚 ${o.delivery}\n` : '') +
       `${itemsText}\n` +
       `Итого: ${sum.toFixed(2)}`;
     const actionButtons: Array<{ text: string; callback_data: string }> = [];
