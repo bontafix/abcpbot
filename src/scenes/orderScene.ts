@@ -283,7 +283,13 @@ const orderStep5 = async (ctx: AnyContext) => {
       s.contactPhone = phone;
 
       // Перед сохранением спросим комментарий
-      await ctx.reply('Добавьте комментарий к товару (или «-» если без комментария):');
+      await ctx.reply('Добавьте комментарий к товару (или нажмите Пропустить):', {
+        reply_markup: {
+          inline_keyboard: [
+            [ { text: 'Пропустить', callback_data: 'comment_skip' } ]
+          ]
+        }
+      });
       // @ts-ignore
       ctx.wizard.selectStep(5);
       return;
@@ -304,7 +310,13 @@ const orderStep5 = async (ctx: AnyContext) => {
         }
       } catch (e) { /* noop */ }
 
-      await ctx.reply('Добавьте комментарий к товару (или «-» если без комментария):');
+      await ctx.reply('Добавьте комментарий к товару (или нажмите Пропустить):', {
+        reply_markup: {
+          inline_keyboard: [
+            [ { text: 'Пропустить', callback_data: 'comment_skip' } ]
+          ]
+        }
+      });
       // @ts-ignore
       ctx.wizard.selectStep(5);
       return;
@@ -312,7 +324,13 @@ const orderStep5 = async (ctx: AnyContext) => {
 
     if (data === 'contact_save_no') {
       // Оформляем заказ без сохранения в профиль
-      await ctx.reply('Добавьте комментарий к товару (или «-» если без комментария):');
+      await ctx.reply('Добавьте комментарий к товару (или нажмите Пропустить):', {
+        reply_markup: {
+          inline_keyboard: [
+            [ { text: 'Пропустить', callback_data: 'comment_skip' } ]
+          ]
+        }
+      });
       // @ts-ignore
       ctx.wizard.selectStep(5);
       return;
@@ -350,6 +368,27 @@ const orderStep5 = async (ctx: AnyContext) => {
 // Шаг 6: принимаем комментарий и создаём заказ
 const orderStep6 = async (ctx: AnyContext) => {
   const s = ctx.wizard.state as OrderWizardState;
+  if (ctx.callbackQuery && 'data' in ctx.callbackQuery) {
+    const data = (ctx.callbackQuery as any).data as string;
+    await ctx.answerCbQuery();
+    if (data === 'comment_skip') {
+      s.itemComment = '';
+      try {
+        if ((ctx.from?.id) && s.number && s.title && s.quantity && typeof s.price === 'number') {
+          const telegramId = String(ctx.from.id);
+          const { OrderRepository } = await import('../repositories/orderRepository');
+          const deliveryText = s.deliveryMethod === 'pickup' ? 'Самовывоз' : `Пункт Сдек: ${s.address || ''}`;
+          const res = await OrderRepository.create(telegramId, [
+            { number: String(s.number), title: String(s.title), count: Number(s.quantity), price: Number(s.price), brand: String(s.brand || ''), distributorId: String(s.distributorId || ''), supplierCode: String(s.supplierCode || ''), lastUpdateTime: String(s.lastUpdateTime || ''), comment: '' }
+          ], deliveryText, String(s.contactName || ''), String(s.contactPhone || ''));
+          const orderId = res?.id;
+          const prefix = orderId ? `Заказ #${String(orderId)} принят:` : 'Заказ принят:';
+          await ctx.reply(`${prefix}\nБрэнд: ${s.brand}\nАртикул: ${s.number}\nКоличество: ${s.quantity}\nКомментарий: -\nИмя: ${s.contactName}\nТелефон: ${s.contactPhone}\nДоставка: ${s.deliveryMethod === 'pickup' ? 'Самовывоз' : `Адрес\n${s.address}`}`);
+          return ctx.scene.enter('search' as any);
+        }
+      } catch (e) { /* noop */ }
+    }
+  }
   if (ctx.message && 'text' in ctx.message) {
     const comment = (ctx.message.text || '').trim();
     s.itemComment = comment === '-' ? '' : comment;
@@ -358,16 +397,27 @@ const orderStep6 = async (ctx: AnyContext) => {
         const telegramId = String(ctx.from.id);
         const { OrderRepository } = await import('../repositories/orderRepository');
         const deliveryText = s.deliveryMethod === 'pickup' ? 'Самовывоз' : `Пункт Сдек: ${s.address || ''}`;
-        await OrderRepository.create(telegramId, [
+        const res = await OrderRepository.create(telegramId, [
           { number: String(s.number), title: String(s.title), count: Number(s.quantity), price: Number(s.price), brand: String(s.brand || ''), distributorId: String(s.distributorId || ''), supplierCode: String(s.supplierCode || ''), lastUpdateTime: String(s.lastUpdateTime || ''), comment: String(s.itemComment || '') }
         ], deliveryText, String(s.contactName || ''), String(s.contactPhone || ''));
+        const orderId = res?.id;
+        const prefix = orderId ? `Заказ #${String(orderId)} принят:` : 'Заказ принят:';
+        await ctx.reply(`${prefix}\nБрэнд: ${s.brand}\nАртикул: ${s.number}\nКоличество: ${s.quantity}\nКомментарий: ${s.itemComment || '-'}\nИмя: ${s.contactName}\nТелефон: ${s.contactPhone}\nДоставка: ${s.deliveryMethod === 'pickup' ? 'Самовывоз' : `Адрес\n${s.address}`}`);
+        return ctx.scene.enter('search' as any);
       }
     } catch (e) { /* noop */ }
 
+    // На случай, если условие выше не выполнилось (не хватает данных)
     await ctx.reply(`Заказ принят:\nБрэнд: ${s.brand}\nАртикул: ${s.number}\nКоличество: ${s.quantity}\nКомментарий: ${s.itemComment || '-'}\nИмя: ${s.contactName}\nТелефон: ${s.contactPhone}\nДоставка: ${s.deliveryMethod === 'pickup' ? 'Самовывоз' : `Адрес\n${s.address}`}`);
     return ctx.scene.enter('search' as any);
   }
-  await ctx.reply('Добавьте комментарий к товару (или «-» если без комментария):');
+  await ctx.reply('Добавьте комментарий к товару (или нажмите Пропустить):', {
+    reply_markup: {
+      inline_keyboard: [
+        [ { text: 'Пропустить', callback_data: 'comment_skip' } ]
+      ]
+    }
+  });
 };
 
 const orderScene = new Scenes.WizardScene<AnyContext>(

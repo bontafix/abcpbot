@@ -31,7 +31,7 @@ export interface OrderRow {
 }
 
 export const OrderRepository = {
-  async create(telegramId: string, items: OrderItem[], delivery: string | undefined, name: string, phone: string, description?: string) {
+  async create(telegramId: string, items: OrderItem[], delivery: string | undefined, name: string, phone: string, description?: string): Promise<{ success: boolean; message: string; id?: number; code?: string; detail?: string; }> {
     try {
       const result = await db.insert(order).values({ telegram_id: telegramId, items, description: description ?? null, delivery, name, phone }).returning({ id: order.id });
       const orderId = result[0]?.id;
@@ -47,16 +47,46 @@ export const OrderRepository = {
           description: description ?? null,
           deliveryMethod: delivery
         });
+        return { success: true, message: 'Заказ создан.', id: orderId };
+      } else {
+        console.warn('Insert returned no id for order. Payload snapshot:', {
+          telegramId,
+          name,
+          phone,
+          delivery,
+          itemsCount: items?.length ?? 0,
+        });
+        return { success: false, message: 'Не удалось получить id заказа после вставки.' };
       }
-
-      return { success: true, message: 'Заказ создан.' };
     } catch (error) {
       if (error instanceof DatabaseError) {
-        console.error('PG error при создании заказа:', error.code, error.detail || '');
-      } else {
-        console.error('Ошибка при создании заказа:', error);
+        const e: any = error as any;
+        const payload = {
+          telegramId,
+          name,
+          phone,
+          delivery,
+          itemsCount: items?.length ?? 0,
+          itemsPreview: (items || []).map(it => ({ number: it.number, count: it.count, price: it.price })),
+        };
+        console.error('PG error при создании заказа', {
+          code: e?.code,
+          message: e?.message,
+          detail: e?.detail,
+          schema: e?.schema,
+          table: e?.table,
+          column: e?.column,
+          constraint: e?.constraint,
+          severity: e?.severity,
+          where: e?.where,
+          routine: e?.routine,
+          payload,
+          stack: e?.stack,
+        });
+        return { success: false, message: 'DB error', code: String(e?.code || ''), detail: String(e?.detail || '') };
       }
-      return { success: false, message: 'Не удалось создать заказ.' };
+      console.error('Ошибка при создании заказа (не БД):', { message: (error as any)?.message, stack: (error as any)?.stack });
+      return { success: false, message: 'Unknown error' };
     }
   },
 
