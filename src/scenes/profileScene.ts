@@ -17,10 +17,10 @@ const profileEnter = async (ctx: Scenes.WizardContext) => {
   await ctx.reply(
     `Ваш профиль:\nИмя: ${info.name}\nТелефон: ${info.phone}\nАдрес Сдек: ${String(info.address || '').trim() || 'не указан'}\n\nРеквизиты организации:\nИНН: ${String((info as any).org_inn || '').trim() || 'не указан'}\nНаименование: ${String((info as any).org_title || '').trim() || 'не указано'}\nОГРН: ${String((info as any).org_ogrn || '').trim() || 'не указан'}\nЮр.адрес: ${String((info as any).org_address || '').trim() || 'не указан'}`,
     Markup.keyboard([
-      [ 'Редактировать', 'Удалить' ],
-      [ 'Редактировать реквизиты' ],
-      [ 'Изменить Адрес отправки Сдек' ],
-      [ 'Назад' ]
+      [ '✏️ Редактировать', '🗑️ Удалить' ],
+      [ '🧾 Редактировать реквизиты' ],
+      [ '📍 Изменить Адрес отправки Сдек' ],
+      [ '🔙 Назад' ]
     ]).resize()
   );
   return ctx.wizard.next();
@@ -31,7 +31,7 @@ const profileHandle = async (ctx: Scenes.WizardContext) => {
   const text = ctx.message.text;
   const telegramId = ctx.from?.id ? String(ctx.from.id) : '';
 
-  if (text === 'Удалить') {
+  if (['Удалить', '🗑️ Удалить'].includes(text)) {
     const client = await ClientRepository.get(telegramId);
     if (!Array.isArray(client) || client.length === 0) {
       await ctx.reply('Профиль не найден.');
@@ -40,7 +40,7 @@ const profileHandle = async (ctx: Scenes.WizardContext) => {
     const info = client[0];
     await ctx.reply(
       `Вы собираетесь удалить профиль:\nИмя: ${info.name}\nТелефон: ${info.phone}\n\nУдалить заказы и историю поиска вместе с профилем?`,
-      Markup.keyboard([[ 'Удалить всё', 'Удалить только профиль' ], [ 'Отмена', 'Назад' ]]).resize()
+      Markup.keyboard([[ 'Удалить всё', 'Удалить только профиль' ], [ 'Отмена', '🔙 Назад' ]]).resize()
     );
     // Переходим на шаг подтверждения удаления
     // @ts-ignore
@@ -48,33 +48,33 @@ const profileHandle = async (ctx: Scenes.WizardContext) => {
     return;
   }
 
-  if (text === 'Редактировать') {
+  if (['Редактировать', '✏️ Редактировать'].includes(text)) {
     await ctx.reply(
       'Отправьте новое имя, затем номер телефона через перенос строки.\nНапример:\nИван Иванов\n+79990000000',
-      Markup.keyboard([[ 'Отмена' ]]).resize()
+      Markup.keyboard([[ '✖️ Отмена' ]]).resize()
     );
     return ctx.wizard.next();
   }
 
-  if (text === 'Редактировать реквизиты') {
+  if (['Редактировать реквизиты', '🧾 Редактировать реквизиты'].includes(text)) {
     await ctx.reply(
       'Отправьте реквизиты через перенос строки в формате:\nИНН\nНаименование организации\nОГРН\nЮр.адрес',
-      Markup.keyboard([[ 'Отмена' ]]).resize()
+      Markup.keyboard([[ '✖️ Отмена' ]]).resize()
     );
     // @ts-ignore
     ctx.wizard.selectStep(6);
     return;
   }
 
-  if (text === 'Изменить Адрес отправки Сдек') {
-    await ctx.reply('Отправьте новый адрес пункта Сдек:', Markup.keyboard([[ 'Отмена' ]]).resize());
+  if (['Изменить Адрес отправки Сдек', '📍 Изменить Адрес отправки Сдек'].includes(text)) {
+    await ctx.reply('Отправьте новый адрес пункта Сдек:', Markup.keyboard([[ '✖️ Отмена' ]]).resize());
     // Переходим на шаг редактирования адреса (см. список шагов внизу)
     // @ts-ignore
     ctx.wizard.selectStep(5);
     return;
   }
 
-  if (text === 'Назад') {
+  if (['Назад', '🔙 Назад'].includes(text)) {
     await ctx.reply('Возвращаемся в меню.', await getMainMenuUser());
     return ctx.scene.leave();
   }
@@ -100,7 +100,7 @@ const profileDeleteConfirm = async (ctx: Scenes.WizardContext) => {
     return ctx.scene.leave();
   }
 
-  if (text === 'Отмена' || text === 'Назад') {
+  if (['Отмена', '✖️ Отмена'].includes(text) || text === 'Назад') {
     await ctx.reply('Удаление отменено.', await getMainMenuUser());
     return ctx.scene.leave();
   }
@@ -110,7 +110,7 @@ const profileEdit = async (ctx: Scenes.WizardContext) => {
   if (!ctx.message || !('text' in ctx.message)) return;
   const rawText = (ctx.message.text || '').trim();
 
-  if (rawText === 'Отмена' || rawText === 'Назад') {
+  if (['Отмена', '✖️ Отмена'].includes(rawText) || rawText === 'Назад') {
     await ctx.reply('Изменение отменено.', await getMainMenuUser());
     return ctx.scene.leave();
   }
@@ -120,7 +120,7 @@ const profileEdit = async (ctx: Scenes.WizardContext) => {
   if (payload.length < 2) {
     await ctx.reply(
       'Некорректный формат. Отправьте имя и телефон через перенос строки.\nНапример:\nИван Иванов\n+79990000000',
-      Markup.keyboard([[ 'Отмена' ]]).resize()
+      Markup.keyboard([[ '✖️ Отмена' ]]).resize()
     );
     return; // остаёмся на текущем шаге
   }
@@ -134,7 +134,7 @@ const profileEdit = async (ctx: Scenes.WizardContext) => {
 
   await ctx.reply(
     `Вы ввели новые данные:\nИмя: ${name}\nТелефон: ${phone}\n\nСохранить изменения?`,
-    Markup.keyboard([[ 'Сохранить', 'Отмена' ]]).resize()
+    Markup.keyboard([[ '💾 Сохранить', '✖️ Отмена' ]]).resize()
   );
   return ctx.wizard.next();
 };
@@ -144,7 +144,7 @@ const profileEditConfirm = async (ctx: Scenes.WizardContext) => {
   const text = ctx.message.text;
   const telegramId = ctx.from?.id ? String(ctx.from.id) : '';
 
-  if (text === 'Сохранить') {
+  if (text === 'Сохранить' || text === '💾 Сохранить') {
     // @ts-ignore
     const name = ctx.wizard.state.tempName as string;
     // @ts-ignore
@@ -154,7 +154,7 @@ const profileEditConfirm = async (ctx: Scenes.WizardContext) => {
     return ctx.scene.leave();
   }
 
-  if (text === 'Отмена' || text === 'Назад') {
+  if (['Отмена', '✖️ Отмена'].includes(text) || text === 'Назад') {
     await ctx.reply('Изменения отменены.', await getMainMenuUser());
     return ctx.scene.leave();
   }
@@ -173,7 +173,7 @@ const profileScene = new Scenes.WizardScene<Scenes.WizardContext>(
     const text = (ctx.message.text || '').trim();
     const telegramId = ctx.from?.id ? String(ctx.from.id) : '';
 
-    if (text === 'Отмена' || text === 'Назад') {
+    if (['Отмена', '✖️ Отмена'].includes(text) || text === 'Назад') {
       await ctx.reply('Изменение адреса отменено.', await getMainMenuUser());
       return ctx.scene.leave();
     }
@@ -184,7 +184,7 @@ const profileScene = new Scenes.WizardScene<Scenes.WizardContext>(
     }
 
     if (!text) {
-      await ctx.reply('Пожалуйста, отправьте адрес текстом или нажмите Отмена.', Markup.keyboard([[ 'Отмена' ]]).resize());
+      await ctx.reply('Пожалуйста, отправьте адрес текстом или нажмите Отмена.', Markup.keyboard([[ '✖️ Отмена' ]]).resize());
       return; // остаёмся на текущем шаге
     }
 
@@ -198,14 +198,14 @@ const profileScene = new Scenes.WizardScene<Scenes.WizardContext>(
     if (!ctx.message || !('text' in ctx.message)) return;
     const rawText = (ctx.message.text || '').trim();
 
-    if (rawText === 'Отмена' || rawText === 'Назад') {
+    if (['Отмена', '✖️ Отмена'].includes(rawText) || rawText === 'Назад') {
       await ctx.reply('Изменение отменено.', await getMainMenuUser());
       return ctx.scene.leave();
     }
 
     const parts = rawText.split('\n').map((s) => s.trim()).filter(Boolean);
     if (parts.length < 4) {
-      await ctx.reply('Нужно передать 4 строки: ИНН, Наименование, ОГРН, Юр.адрес. Попробуйте снова.', Markup.keyboard([[ 'Отмена' ]]).resize());
+      await ctx.reply('Нужно передать 4 строки: ИНН, Наименование, ОГРН, Юр.адрес. Попробуйте снова.', Markup.keyboard([[ '✖️ Отмена' ]]).resize());
       return; // остаёмся на шаге
     }
 
@@ -221,7 +221,7 @@ const profileScene = new Scenes.WizardScene<Scenes.WizardContext>(
 
     await ctx.reply(
       `Проверьте реквизиты:\nИНН: ${org_inn}\nНаименование: ${org_title}\nОГРН: ${org_ogrn}\nЮр.адрес: ${org_address}\n\nСохранить изменения?`,
-      Markup.keyboard([[ 'Сохранить', 'Отмена' ]]).resize()
+      Markup.keyboard([[ '💾 Сохранить', '✖️ Отмена' ]]).resize()
     );
     // @ts-ignore
     ctx.wizard.selectStep(7);
@@ -233,7 +233,7 @@ const profileScene = new Scenes.WizardScene<Scenes.WizardContext>(
     const text = ctx.message.text;
     const telegramId = ctx.from?.id ? String(ctx.from.id) : '';
 
-    if (text === 'Сохранить') {
+    if (text === 'Сохранить' || text === '💾 Сохранить') {
       // @ts-ignore
       const org_inn = ctx.wizard.state.org_inn as string;
       // @ts-ignore
@@ -247,7 +247,7 @@ const profileScene = new Scenes.WizardScene<Scenes.WizardContext>(
       return ctx.scene.leave();
     }
 
-    if (text === 'Отмена' || text === 'Назад') {
+    if (['Отмена', '✖️ Отмена'].includes(text) || text === 'Назад') {
       await ctx.reply('Изменения отменены.', await getMainMenuUser());
       return ctx.scene.leave();
     }

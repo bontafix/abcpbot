@@ -1,4 +1,5 @@
 import { Scenes } from 'telegraf';
+import { isOneOf } from '../utils/text';
 import { SettingsService } from '../services/settingsService';
 import { showAdminHeader, deleteUserMessage } from '../utils/adminUi';
 
@@ -13,7 +14,7 @@ const HELP_SECTIONS = [
 function getDisplayKeyboard() {
   return {
     keyboard: [
-      [{ text: 'Назад' }],
+      [{ text: '🔙 Назад' }],
     ],
     resize_keyboard: true,
     one_time_keyboard: false,
@@ -23,7 +24,7 @@ function getDisplayKeyboard() {
 function getEditKeyboard() {
   return {
     keyboard: [
-      [{ text: 'Отмена' }],
+      [{ text: '✖️ Отмена' }],
     ],
     resize_keyboard: true,
   } as any;
@@ -60,7 +61,7 @@ const stepEdit = async (ctx: AnyContext) => {
   if (ctx.message && 'text' in ctx.message) {
     await deleteUserMessage(ctx);
     const t = (ctx.message.text || '').trim();
-    if (t === 'Отмена') {
+    if (isOneOf(t, ['Отмена'])) {
       // @ts-ignore
       ctx.wizard.selectStep(0);
       await ctx.reply('Изменение отменено. Возвращаюсь к списку.', { reply_markup: getDisplayKeyboard() } as any);
@@ -93,7 +94,7 @@ const helpSettingsScene = new Scenes.WizardScene<AnyContext>(
   stepEdit
 );
 
-helpSettingsScene.hears('Назад', async (ctx) => {
+helpSettingsScene.hears(['Назад', '🔙 Назад'], async (ctx) => {
   try { await ctx.scene.leave(); } catch {}
   // @ts-ignore
   await ctx.scene.enter('admin_settings');

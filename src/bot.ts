@@ -6,6 +6,7 @@ import Redis from 'ioredis';
 // import axios from 'axios';
 import { message } from 'telegraf/filters';
 import { getMainMenuGuest, getMainMenuUser, getProfileMenu } from './menu';
+import { isOneOf } from './utils/text';
 import { Markup } from 'telegraf';
 import { ClientRepository } from './repositories/clientRepository';
 import { UserRepository } from './repositories/userRepository';
@@ -90,10 +91,15 @@ const stage = new Scenes.Stage<MyContext>([
   adminSettingsBankScene as any,
   adminSettingsHelpScene as any,
 ]);
-// Глобальная навигация внутри сцен: кнопка «Поиск»
-stage.hears('Поиск', async (ctx) => {
-  try { await ctx.scene.leave(); } catch {}
-  await ctx.scene.enter('search');
+// Глобальная навигация внутри сцен: кнопка «Поиск» (устойчиво к эмодзи)
+stage.hears(/.+/, async (ctx, next) => {
+  const text = (ctx.message && 'text' in ctx.message) ? (ctx.message.text || '') : '';
+  if (isOneOf(text, ['Поиск'])) {
+    try { await ctx.scene.leave(); } catch {}
+    await ctx.scene.enter('search');
+    return;
+  }
+  return next();
 });
 // Глобальные команды внутри любых сцен
 stage.command('start', async (ctx) => {
@@ -208,8 +214,31 @@ bot.start(async (ctx) => {
   }
 });
 
-bot.hears('Поиск', async (ctx) => {
-  await ctx.scene.enter('search');
+// Главные пункты меню (устойчиво к эмодзи)
+bot.hears(/.+/, async (ctx, next) => {
+  const text = (ctx.message && 'text' in ctx.message) ? (ctx.message.text || '') : '';
+  if (isOneOf(text, ['Поиск'])) {
+    await ctx.scene.enter('search');
+    return;
+  }
+  if (isOneOf(text, ['Профиль'])) {
+    await ctx.scene.enter('profile');
+    return;
+  }
+  if (isOneOf(text, ['Мои заказы'])) {
+    await ctx.scene.enter('orders_summary');
+    return;
+  }
+  if (isOneOf(text, ['Менеджер'])) {
+    const phone = process.env.MANAGER_PHONE || '+1234567890';
+    const userId = process.env.MANAGER_TELEGRAM_ID || 'USER_TELEGRAM_ID';
+    const textOut = `Связаться с менеджером: ${phone}`;
+    await ctx.reply(textOut, Markup.inlineKeyboard([
+      Markup.button.url('Открыть в Telegram', `tg://user?id=${userId}`)
+    ]));
+    return;
+  }
+  return next();
 });
 
 bot.command('search', async (ctx) => {

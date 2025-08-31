@@ -7,8 +7,8 @@ function getSettingsKeyboard() {
   return {
     keyboard: [
       // [{ text: 'Менеджер' }, { text: 'Abcp' }, { text: 'Банк' }],
-      [{ text: 'Менеджер' }, { text: 'Помощь' }],
-      [{ text: 'Назад' }],
+      [{ text: '🧑‍💼 Менеджер' }, { text: 'Помощь' }],
+      [{ text: '🔙 Назад' }],
     ],
     resize_keyboard: true,
     one_time_keyboard: false,
@@ -24,14 +24,14 @@ const settingsScene = new Scenes.BaseScene<AnyContext>('admin_settings');
 
 settingsScene.enter(enterStep);
 
-settingsScene.hears('Назад', async (ctx) => {
+settingsScene.hears(['Назад', '🔙 Назад'], async (ctx) => {
   try { await ctx.scene.leave(); } catch {}
   // @ts-ignore
   await ctx.scene.enter('admin_scene');
 });
 
 // Заглушки для разделов. Позже можно заменить на отдельные сцены/визарды
-settingsScene.hears('Менеджер', async (ctx) => {
+settingsScene.hears(['Менеджер', '🧑‍💼 Менеджер'], async (ctx) => {
   try { await ctx.scene.leave(); } catch {}
   // @ts-ignore
   await ctx.scene.enter('admin_settings_manager');

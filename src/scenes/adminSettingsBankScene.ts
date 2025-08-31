@@ -1,4 +1,5 @@
 import { Scenes } from 'telegraf';
+import { isOneOf } from '../utils/text';
 import { SettingsService } from '../services/settingsService';
 import { BankSettings, BankFieldOrder, validateBankField } from '../utils/validation';
 import { showAdminHeader, deleteUserMessage } from '../utils/adminUi';
@@ -8,7 +9,7 @@ type AnyContext = Scenes.WizardContext & { scene: any; wizard: any };
 function getKeyboard() {
   return {
     keyboard: [
-      [{ text: 'Отмена' }],
+      [{ text: '✖️ Отмена' }],
     ],
     resize_keyboard: true,
   } as any;
@@ -32,7 +33,7 @@ const stepInput = async (ctx: AnyContext) => {
   if (ctx.message && 'text' in ctx.message) {
     await deleteUserMessage(ctx);
     const t = (ctx.message.text || '').trim();
-    if (t === 'Отмена') {
+    if (isOneOf(t, ['Отмена'])) {
       try { await ctx.scene.leave(); } catch {}
       // @ts-ignore
       return ctx.scene.enter('admin_settings');

@@ -51,10 +51,10 @@ const ordersSummaryEnter = async (ctx: AnyContext) => {
   await ctx.reply(
     `Ваши заказы по статусам:\n${lines.join('\n')}\n\nВыберите, какие заказы показать:`,
     Markup.keyboard([
-      ['Новый', 'В работе'],
-      ['В резерве', 'Выполнен'],
-      ['Отказ'],
-      ['Назад']
+      ['🆕 Новый', '⏳ В работе'],
+      ['🔒 В резерве', '✅ Выполнен'],
+      ['🚫 Отказ'],
+      ['🔙 Назад']
     ]).resize()
   );
 
@@ -64,8 +64,8 @@ const ordersSummaryEnter = async (ctx: AnyContext) => {
 const ordersSummaryHandle = async (ctx: AnyContext) => {
   if (ctx.message && 'text' in ctx.message) {
     const txt = (ctx.message.text || '').trim();
-    if (txt === 'Назад') {
-      await ctx.reply('Скрываю клавиатуру…', Markup.removeKeyboard());
+    if (['Назад', '🔙 Назад'].includes(txt)) {
+      // Показать главное меню и оставить сообщение «Меню»
       await ctx.reply('Меню', await getMainMenuUser());
       return ctx.scene.leave();
     }
@@ -76,7 +76,8 @@ const ordersSummaryHandle = async (ctx: AnyContext) => {
       'Выполнен': 'completed',
       'В резерве': 'reserved',
     };
-    const mapped = labelToKey[txt] || '';
+    const clean = txt.replace(/^[^A-Za-zА-Яа-яЁё0-9]+/, '').trim();
+    const mapped = labelToKey[clean] || '';
     if (mapped) {
       // При переходе в orders удалим предыдущее summary-сообщение (если возможно)
       try { await ctx.deleteMessage(); } catch {}

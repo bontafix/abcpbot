@@ -43,10 +43,11 @@ const orderStep1 = async (ctx: AnyContext) => {
 
   await ctx.reply(
     `Оформление заказа\nБрэнд: ${s.brand ?? '-'}\nАртикул: ${s.number ?? '-'}\nДоступно: ${String(s.availabilityTransformed ?? s.availability ?? '-')}` +
-    `\n\nВведите количество:`,
+    `\n\n<b>Введите количество:</b>\n`,
     {
+      parse_mode: 'HTML',
       reply_markup: {
-        inline_keyboard: [[{ text: 'Отмена', callback_data: 'cancel_order' }]],
+        inline_keyboard: [[{ text: '✖️ Отмена', callback_data: 'cancel_order' }]],
       },
     }
   );

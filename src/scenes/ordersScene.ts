@@ -33,7 +33,7 @@ const ordersEnter = async (ctx: Scenes.WizardContext) => {
 
   const list = await OrderRepository.getByTelegramId(telegramId);
   if (!Array.isArray(list) || list.length === 0) {
-    await ctx.reply('У вас пока нет заказов.');
+    await ctx.reply('У вас пока нет заказов.', await getMainMenuUser());
     return ctx.scene.leave();
   }
 
@@ -45,10 +45,10 @@ const ordersEnter = async (ctx: Scenes.WizardContext) => {
     const label = STATUS_LABELS[normalized] || normalized;
     await ctx.reply(`Заказов в статусе «${label}» нет.`);
     await ctx.reply('Выберите статус:', Markup.keyboard([
-      ['Новый', 'В работе'],
-      ['В резерве', 'Выполнен'],
-      ['Отказ'],
-      ['Назад']
+      ['🆕 Новый', '⏳ В работе'],
+      ['🔒 В резерве', '✅ Выполнен'],
+      ['🚫 Отказ'],
+      ['🔙 Назад']
     ]).resize());
     return ctx.wizard.next();
   }
@@ -90,10 +90,10 @@ const ordersEnter = async (ctx: Scenes.WizardContext) => {
   }
 
   await ctx.reply('Выберите статус:', Markup.keyboard([
-    ['Новый', 'В работе'],
-    ['В резерве', 'Выполнен'],
-    ['Отказ'],
-    ['Назад']
+    ['🆕 Новый', '⏳ В работе'],
+    ['🔒 В резерве', '✅ Выполнен'],
+    ['🚫 Отказ'],
+    ['🔙 Назад']
   ]).resize());
 
   return ctx.wizard.next();
@@ -102,8 +102,8 @@ const ordersEnter = async (ctx: Scenes.WizardContext) => {
 const ordersHandle = async (ctx: Scenes.WizardContext) => {
   if (ctx.message && 'text' in ctx.message) {
     const txt = (ctx.message.text || '').trim();
-    if (txt === 'Назад') {
-      await ctx.reply('Скрываю клавиатуру…', Markup.removeKeyboard());
+    if (['Назад', '🔙 Назад'].includes(txt)) {
+      // Показать главное меню и оставить сообщение «Меню»
       await ctx.reply('Меню', await getMainMenuUser());
       return ctx.scene.leave();
     }
@@ -114,7 +114,8 @@ const ordersHandle = async (ctx: Scenes.WizardContext) => {
       'Выполнен': 'completed',
       'В резерве': 'reserved',
     };
-    const mapped = labelToKey[txt] || '';
+    const clean = txt.replace(/^[^A-Za-zА-Яа-яЁё0-9]+/, '').trim();
+    const mapped = labelToKey[clean] || '';
     if (mapped) {
       // Удаляем ранее отправленные сообщения с заказами, если они были сохранены
       const s = ctx.wizard.state as { orderMessageIds?: number[] };
@@ -136,8 +137,19 @@ const ordersHandle = async (ctx: Scenes.WizardContext) => {
       const telegramId = ctx.from?.id ? String(ctx.from.id) : '';
       const res = await OrderRepository.deleteById(orderId, telegramId);
       try { await ctx.deleteMessage(); } catch (e) { /* ignore */ }
-      await ctx.reply(res.message, await getMainMenuUser());
-      return ctx.scene.leave();
+      // Удалим все ранее отправленные сообщения со списком заказов, чтобы не было дублей
+      try {
+        const s = ctx.wizard.state as { orderMessageIds?: number[] };
+        const ids = Array.isArray(s.orderMessageIds) ? [...s.orderMessageIds] : [];
+        for (const id of ids) {
+          try { await ctx.deleteMessage(id); } catch {}
+        }
+        s.orderMessageIds = [];
+      } catch {}
+      // Сообщим об результате и перерисуем список с текущим фильтром (по умолчанию 'rejected')
+      await ctx.reply(res.message);
+      const currentFilter = String(((ctx.scene.state || {}) as any).filterStatus || 'rejected');
+      return ctx.scene.enter('orders', { filterStatus: currentFilter });
     }
     if (data.startsWith('order_cancel:')) {
       await ctx.answerCbQuery();

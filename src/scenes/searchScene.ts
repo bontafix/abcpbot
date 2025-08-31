@@ -1,4 +1,5 @@
 import { Telegraf, session, Scenes } from 'telegraf';
+import { normalizeMenuText, isOneOf } from '../utils/text';
 import * as dotenv from 'dotenv';
 import { UserRepository } from '../repositories/userRepository';
 import { searchBrands, searchArticles } from '../abcp';
@@ -72,7 +73,7 @@ const step1 = async (ctx: MyContext) => {
 
   await ctx.reply('Введите код запчасти:', {
     reply_markup: {
-      keyboard: [[{ text: 'История' }, { text: 'Очистить историю' }], [{ text: 'Назад' }]],
+      keyboard: [[{ text: '🕘 История' }, { text: '🧹 Очистить историю' }], [{ text: '🔙 Назад' }]],
       resize_keyboard: true,
       one_time_keyboard: false,
     } as any,
@@ -97,7 +98,7 @@ const step2 = async (ctx: MyContext) => {
 
   if (ctx.message && 'text' in ctx.message) {
     // История
-    if (ctx.message.text === 'История') {
+    if (isOneOf(ctx.message.text, ['История'])) {
       const telegramId = ctx.from?.id ? String(ctx.from.id) : '';
       if (!telegramId) {
         await ctx.reply('Не удалось определить Telegram ID.');
@@ -115,14 +116,14 @@ const step2 = async (ctx: MyContext) => {
     }
 
     // Назад
-    if (ctx.message.text === 'Назад') {
+    if (isOneOf(ctx.message.text, ['Назад'])) {
       const { getMainMenuUser } = await import('../menu');
       await ctx.reply('Возвращаемся в меню.', await getMainMenuUser());
       return ctx.scene.leave();
     }
 
     // Очистить историю
-    if (ctx.message.text === 'Очистить историю') {
+    if (isOneOf(ctx.message.text, ['Очистить историю'])) {
       const telegramId = ctx.from?.id ? String(ctx.from.id) : '';
       if (!telegramId) {
         await ctx.reply('Не удалось определить Telegram ID.');
@@ -449,7 +450,7 @@ async function replyAnalogsButton(ctx: MyContext, analogCount: number) {
   if (analogCount <= 0) return;
   
   const { replySafe } = await import('../utils/replySafe');
-  await replySafe(ctx, `Найдены аналоги: ${analogCount}`, {
+  await replySafe(ctx, `*Найдены аналоги:* ${analogCount}`, {
     parse_mode: 'Markdown',
     reply_markup: getAnalogsInlineKeyboard(analogCount)
   } as any);
