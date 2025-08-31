@@ -212,7 +212,7 @@ const step3 = async (ctx: MyContext) => {
   if (ctx.callbackQuery && 'data' in ctx.callbackQuery) {
     const data = (ctx.callbackQuery as any).data as string;
 
-    // Обработка кнопки «Новый поиск» → показываем меню поиска на шаге ввода
+    // Обработка кнопки «Новый поиск» → перезапускаем сцену, чтобы запустился шаг 1
     if (data === 'restart_search' || data === 'restart') {
       await ctx.answerCbQuery();
       const s = ctx.wizard.state as SearchWizardState;
@@ -222,8 +222,7 @@ const step3 = async (ctx: MyContext) => {
         delete s.selectedBrandNumber;
         delete s.analogArticles;
       }
-      // Переходим к первому шагу (ввод кода запчасти)
-      return ctx.wizard.selectStep(0);
+      return ctx.scene.reenter();
     }
 
     // Обработка кнопки «Показать аналоги»

@@ -59,6 +59,11 @@ const orderStep2 = async (ctx: AnyContext) => {
   // Обработка отмены через кнопку
   if (ctx.callbackQuery && 'data' in ctx.callbackQuery) {
     const data = (ctx.callbackQuery as any).data as string;
+    // Глобальная кнопка «Новый поиск» внутри сцены заказа
+    if (data === 'restart_search' || data === 'restart') {
+      await ctx.answerCbQuery();
+      return ctx.scene.enter('search' as any);
+    }
     if (data === 'cancel_order') {
       await ctx.answerCbQuery('Отменено');
       try { await ctx.deleteMessage(); } catch (e) { /* ignore */ }
@@ -102,6 +107,11 @@ const orderStep3 = async (ctx: AnyContext) => {
   if (ctx.callbackQuery && 'data' in ctx.callbackQuery) {
     const data = (ctx.callbackQuery as any).data as string;
     await ctx.answerCbQuery();
+
+    // Глобальная кнопка «Новый поиск» внутри сцены заказа
+    if (data === 'restart_search' || data === 'restart') {
+      return ctx.scene.enter('search' as any);
+    }
 
     if (data === 'delivery:pickup') {
       s.deliveryMethod = 'pickup';
@@ -182,6 +192,10 @@ const orderStep4 = async (ctx: AnyContext) => {
   if (ctx.callbackQuery && 'data' in ctx.callbackQuery) {
     const data = (ctx.callbackQuery as any).data as string;
     await ctx.answerCbQuery();
+    // Глобальная кнопка «Новый поиск» внутри сцены заказа
+    if (data === 'restart_search' || data === 'restart') {
+      return ctx.scene.enter('search' as any);
+    }
     if (data === 'address_use_saved') {
       // Получаем сохранённый адрес и сразу оформляем
       const telegramId = ctx.from?.id ? String(ctx.from.id) : '';
@@ -268,6 +282,11 @@ const orderStep5 = async (ctx: AnyContext) => {
   if (ctx.callbackQuery && 'data' in ctx.callbackQuery) {
     const data = (ctx.callbackQuery as any).data as string;
     await ctx.answerCbQuery();
+
+    // Глобальная кнопка «Новый поиск» внутри сцены заказа
+    if (data === 'restart_search' || data === 'restart') {
+      return ctx.scene.enter('search' as any);
+    }
 
     if (data === 'contact_use_saved') {
       const telegramId = ctx.from?.id ? String(ctx.from.id) : '';
@@ -371,6 +390,10 @@ const orderStep6 = async (ctx: AnyContext) => {
   if (ctx.callbackQuery && 'data' in ctx.callbackQuery) {
     const data = (ctx.callbackQuery as any).data as string;
     await ctx.answerCbQuery();
+    // Глобальная кнопка «Новый поиск» внутри сцены заказа
+    if (data === 'restart_search' || data === 'restart') {
+      return ctx.scene.enter('search' as any);
+    }
     if (data === 'comment_skip') {
       s.itemComment = '';
       try {
