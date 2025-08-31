@@ -14,15 +14,32 @@ const profileEnter = async (ctx: Scenes.WizardContext) => {
     return ctx.scene.leave();
   }
   const info = client[0];
-  await ctx.reply(
-    `Ваш профиль:\nИмя: ${info.name}\nТелефон: ${info.phone}\nАдрес Сдек: ${String(info.address || '').trim() || 'не указан'}\n\nРеквизиты организации:\nИНН: ${String((info as any).org_inn || '').trim() || 'не указан'}\nНаименование: ${String((info as any).org_title || '').trim() || 'не указано'}\nОГРН: ${String((info as any).org_ogrn || '').trim() || 'не указан'}\nЮр.адрес: ${String((info as any).org_address || '').trim() || 'не указан'}`,
-    Markup.keyboard([
-      [ '✏️ Редактировать', '🗑️ Удалить' ],
-      [ '🧾 Редактировать реквизиты' ],
-      [ '📍 Изменить Адрес отправки Сдек' ],
-      [ '🔙 Назад' ]
-    ]).resize()
-  );
+  const enableInvoice = String(process.env.CREATE_INVOICE || '').toLowerCase() === 'true';
+  const rows: string[][] = [
+    [ '✏️ Редактировать', '🗑️ Удалить' ],
+  ];
+  if (enableInvoice) {
+    rows.push([ '🧾 Редактировать реквизиты' ]);
+  }
+  rows.push([ '📍 Изменить Адрес отправки Сдек' ]);
+  rows.push([ '🔙 Назад' ]);
+  const lines: string[] = [
+    'Ваш профиль:',
+    `Имя: ${info.name}`,
+    `Телефон: ${info.phone}`,
+    `Адрес Сдек: ${String(info.address || '').trim() || 'не указан'}`,
+  ];
+  if (enableInvoice) {
+    lines.push(
+      '',
+      'Реквизиты организации:',
+      `ИНН: ${String((info as any).org_inn || '').trim() || 'не указан'}`,
+      `Наименование: ${String((info as any).org_title || '').trim() || 'не указано'}`,
+      `ОГРН: ${String((info as any).org_ogrn || '').trim() || 'не указан'}`,
+      `Юр.адрес: ${String((info as any).org_address || '').trim() || 'не указан'}`,
+    );
+  }
+  await ctx.reply(lines.join('\n'), Markup.keyboard(rows).resize());
   return ctx.wizard.next();
 };
 
@@ -56,7 +73,7 @@ const profileHandle = async (ctx: Scenes.WizardContext) => {
     return ctx.wizard.next();
   }
 
-  if (['Редактировать реквизиты', '🧾 Редактировать реквизиты'].includes(text)) {
+  if (String(process.env.CREATE_INVOICE || '').toLowerCase() === 'true' && ['Редактировать реквизиты', '🧾 Редактировать реквизиты'].includes(text)) {
     await ctx.reply(
       'Отправьте реквизиты через перенос строки в формате:\nИНН\nНаименование организации\nОГРН\nЮр.адрес',
       Markup.keyboard([[ '✖️ Отмена' ]]).resize()

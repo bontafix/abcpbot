@@ -53,6 +53,7 @@ const ordersEnter = async (ctx: Scenes.WizardContext) => {
     return ctx.wizard.next();
   }
 
+  const enableInvoice = String(process.env.CREATE_INVOICE || '').toLowerCase() === 'true';
   for (const o of filtered as OrderRow[]) {
     const sum = (o.items || []).reduce((acc, it) => acc + Number(it.price || 0) * Number(it.count || 0), 0);
     const itemsText = (o.items || [])
@@ -73,8 +74,12 @@ const ordersEnter = async (ctx: Scenes.WizardContext) => {
       // Для незавершённых — кнопка отказа
       actionButtons.push({ text: 'Отказаться', callback_data: `order_cancel:${o.id}` });
     }
-    // Кнопка выписки счёта доступна для любого заказа
-    actionButtons.push({ text: 'Выписать счёт', callback_data: `order_invoice:${o.id}` });
+    // Кнопка выписки счёта доступна по флагу окружения
+    console.log('Выписать счёт', enableInvoice);
+    if (enableInvoice) {
+   
+      actionButtons.push({ text: 'Выписать счёт', callback_data: `order_invoice:${o.id}` });
+    }
 
     const sent = await ctx.reply(msg, {
       reply_markup: actionButtons.length

@@ -16,10 +16,15 @@ function getKeyboard() {
 }
 
 async function showCurrent(ctx: AnyContext) {
-  const data = await SettingsService.getCategory('manager');
-  const phone = String((data as any)?.phone || '').trim();
-  const tgId = String((data as any)?.telegram_user_id || '').trim();
-  const name = String((data as any)?.display_name || '').trim();
+  // Читаем по ключам, чтобы избежать возможного устаревшего категорийного кэша
+  const [phoneRaw, tgIdRaw, nameRaw] = await Promise.all([
+    SettingsService.get('manager', 'phone'),
+    SettingsService.get('manager', 'telegram_user_id'),
+    SettingsService.get('manager', 'display_name'),
+  ]);
+  const phone = String(phoneRaw || '').trim();
+  const tgId = String(tgIdRaw || '').trim();
+  const name = String(nameRaw || '').trim();
 
   const text = [
     'Настройки менеджера:',

@@ -26,6 +26,7 @@ import adminSettingsManagerScene from './scenes/adminSettingsManagerScene';
 import adminSettingsAbcpScene from './scenes/adminSettingsAbcpScene';
 import adminSettingsBankScene from './scenes/adminSettingsBankScene';
 import adminSettingsHelpScene from './scenes/adminSettingsHelpScene';
+import { SettingsService } from './services/settingsService';
 
 
 import { keyboard } from 'telegraf/typings/markup';
@@ -230,12 +231,17 @@ bot.hears(/.+/, async (ctx, next) => {
     return;
   }
   if (isOneOf(text, ['Менеджер'])) {
-    const phone = process.env.MANAGER_PHONE || '+1234567890';
-    const userId = process.env.MANAGER_TELEGRAM_ID || 'USER_TELEGRAM_ID';
-    const textOut = `Связаться с менеджером: ${phone}`;
-    await ctx.reply(textOut, Markup.inlineKeyboard([
+    const [phoneRaw, userIdRaw] = await Promise.all([
+      SettingsService.get('manager', 'phone'),
+      SettingsService.get('manager', 'telegram_user_id'),
+    ]);
+    const phone = String(phoneRaw || '').trim();
+    const userId = String(userIdRaw || '').trim();
+    const textOut = `Связаться с менеджером: ${phone || 'не указан'}`;
+    const keyboard = userId ? Markup.inlineKeyboard([
       Markup.button.url('Открыть в Telegram', `tg://user?id=${userId}`)
-    ]));
+    ]) : undefined;
+    await ctx.reply(textOut, keyboard);
     return;
   }
   return next();
@@ -287,22 +293,10 @@ bot.hears('Мои заказы', async (ctx) => {
   await ctx.scene.enter('orders_summary');
 });
 
-
-
-
-bot.hears('Менеджер', async (ctx) => {
-  const phone = process.env.MANAGER_PHONE || '+1234567890';
-  const userId = process.env.MANAGER_TELEGRAM_ID || 'USER_TELEGRAM_ID';
-  const text = `Связаться с менеджером: ${phone}`;
-  await ctx.reply(text, Markup.inlineKeyboard([
-    // Markup.button.callback('Показать телефон', 'manager_show_phone'),
-    Markup.button.url('Открыть в Telegram', `tg://user?id=${userId}`)
-  ]));
-});
-
 bot.action('manager_show_phone', async (ctx) => {
   try {
-    const phone = (process.env.MANAGER_PHONE || '+1234567890').replace(/\s+/g, '');
+    const phoneRaw = await SettingsService.get('manager', 'phone');
+    const phone = String(phoneRaw || '+1234567890').replace(/\s+/g, '');
     await ctx.answerCbQuery(`Телефон: ${phone}`, { show_alert: true });
     if (ctx.chat?.id) {
       await ctx.telegram.sendContact(ctx.chat.id, phone, 'Менеджер');
