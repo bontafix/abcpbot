@@ -3,6 +3,16 @@ import { client } from '../models';
 import { eq, desc, count } from 'drizzle-orm';
 import { DatabaseError } from 'pg';
 
+function normalizePhone(raw: string): string {
+  const trimmed = String(raw || '').trim();
+  const digits = trimmed.replace(/[^\d+]/g, '');
+  if (digits.startsWith('+')) {
+    const onlyDigits = digits.replace(/\D/g, '');
+    return '+' + onlyDigits;
+  }
+  return digits.replace(/\D/g, '');
+}
+
 interface Client {
   id: number;
   telegram_id: string;
@@ -44,7 +54,7 @@ export const ClientRepository = {
     try {
       const updateData: any = {};
       if (typeof data.name === 'string' && data.name.trim() !== '') updateData.name = data.name.trim();
-      if (typeof data.phone === 'string' && data.phone.trim() !== '') updateData.phone = data.phone.trim();
+      if (typeof data.phone === 'string' && data.phone.trim() !== '') updateData.phone = normalizePhone(data.phone);
       if (typeof data.address === 'string' && data.address.trim() !== '') updateData.address = data.address.trim();
       if (typeof data.org_inn === 'string' && data.org_inn.trim() !== '') updateData.org_inn = data.org_inn.trim();
       if (typeof data.org_title === 'string' && data.org_title.trim() !== '') updateData.org_title = data.org_title.trim();
@@ -58,6 +68,17 @@ export const ClientRepository = {
     } catch (error) {
       console.error('Ошибка при обновлении клиента:', error);
       return { success: false, message: 'Произошла ошибка при обновлении клиента.' };
+    }
+  },
+
+  async findByPhone(phone: string): Promise<Client[] | { success: boolean; message: string }> {
+    try {
+      const normalized = normalizePhone(phone);
+      const clients = await db.select().from(client).where(eq(client.phone, normalized));
+      return clients as Client[];
+    } catch (error: any) {
+      console.error('Поиск клиента по телефону:', error?.message || '');
+      return { success: false, message: 'Клиент не найден' };
     }
   },
 

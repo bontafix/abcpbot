@@ -2,7 +2,7 @@ import { Scenes } from 'telegraf';
 import { isOneOf } from '../utils/text';
 import { showAdminHeader, deleteUserMessage } from '../utils/adminUi';
 import { SettingsService } from '../services/settingsService';
-import { ManagerSettings, ManagerFieldOrder, validateManagerField } from '../utils/validation';
+import { ManagerSettings, validateManagerField } from '../utils/validation';
 
 type AnyContext = Scenes.WizardContext & { scene: any; wizard: any };
 
@@ -17,55 +17,93 @@ function getKeyboard() {
 
 async function showCurrent(ctx: AnyContext) {
   const data = await SettingsService.getCategory('manager');
-  const masked: Record<string, any> = {};
-  Object.entries(data).forEach(([k, v]) => masked[k] = k.toLowerCase().includes('phone') ? v : v);
-  await ctx.reply('Текущие значения (manager):\n```\n' + JSON.stringify(masked, null, 2) + '\n```', { parse_mode: 'Markdown' } as any);
+  const phone = String((data as any)?.phone || '').trim();
+  const tgId = String((data as any)?.telegram_user_id || '').trim();
+  const name = String((data as any)?.display_name || '').trim();
+
+  const text = [
+    'Настройки менеджера:',
+    '',
+    `Телефон: ${phone || 'не указан'}`,
+    `ID: ${tgId || 'не указан'}`,
+    `Имя: ${name || 'не указано'}`,
+  ].join('\n');
+
+  await ctx.reply(text, {
+    reply_markup: {
+      inline_keyboard: [
+        [ { text: '✏️ Телефон', callback_data: 'edit:phone' } ],
+        [ { text: '✏️ ID', callback_data: 'edit:telegram_user_id' } ],
+        [ { text: '✏️ Имя', callback_data: 'edit:display_name' } ],
+        [ { text: '⬅️ Назад', callback_data: 'back' } ],
+      ],
+    },
+  } as any);
 }
 
 const step1 = async (ctx: AnyContext) => {
   await showAdminHeader(ctx, 'Настройки бота — Менеджер');
-  (ctx.wizard.state as any).idx = 0;
+  (ctx.wizard.state as any).editingField = undefined;
   await showCurrent(ctx);
-  const field = ManagerFieldOrder[0];
-  await ctx.reply(`Введите значение для ${field}:`, { reply_markup: getKeyboard() });
   return ctx.wizard.next();
 };
 
 const stepInput = async (ctx: AnyContext) => {
-  if (ctx.message && 'text' in ctx.message) {
-    await deleteUserMessage(ctx);
-    const t = (ctx.message.text || '').trim();
-    if (isOneOf(t, ['Отмена'])) {
+  // Обработка нажатий на inline-кнопки
+  if (ctx.callbackQuery && 'data' in ctx.callbackQuery) {
+    const data = (ctx.callbackQuery as any).data as string;
+    await ctx.answerCbQuery();
+    if (data === 'back') {
       try { await ctx.scene.leave(); } catch {}
       // @ts-ignore
       return ctx.scene.enter('admin_settings');
     }
-    const s = ctx.wizard.state as any;
-    const idx = s.idx as number;
-    const field = ManagerFieldOrder[idx];
+    if (data.startsWith('edit:')) {
+      const field = data.substring('edit:'.length) as keyof ManagerSettings;
+      (ctx.wizard.state as any).editingField = field;
+      const label = field === 'phone' ? 'телефон' : field === 'telegram_user_id' ? 'Telegram ID' : 'имя';
+      await ctx.reply(`Введите новое значение (${label}):`, { reply_markup: getKeyboard() });
+      return;
+    }
+  }
+
+  if (ctx.message && 'text' in ctx.message) {
+    await deleteUserMessage(ctx);
+    const t = (ctx.message.text || '').trim();
+    if (isOneOf(t, ['Отмена'])) {
+      const field = (ctx.wizard.state as any).editingField as keyof ManagerSettings | undefined;
+      if (field) {
+        (ctx.wizard.state as any).editingField = undefined;
+        await ctx.reply('Отменено.');
+        await showCurrent(ctx);
+        return;
+      } else {
+        try { await ctx.scene.leave(); } catch {}
+        // @ts-ignore
+        return ctx.scene.enter('admin_settings');
+      }
+    }
+    const field = (ctx.wizard.state as any).editingField as keyof ManagerSettings | undefined;
+    if (!field) {
+      await ctx.reply('Выберите, что изменить, с помощью кнопок ниже.');
+      await showCurrent(ctx);
+      return;
+    }
     const v = validateManagerField(field, t);
     if (!v.ok) {
-      await ctx.reply(`Ошибка: ${v.error}. Повторите ввод для ${field}:`);
+      await ctx.reply(`Ошибка: ${v.error}. Повторите ввод:`);
       return;
     }
-    s.values = s.values || {};
-    s.values[field] = v.value;
-    if (idx + 1 < ManagerFieldOrder.length) {
-      s.idx = idx + 1;
-      const nextField = ManagerFieldOrder[s.idx];
-      await ctx.reply(`Введите значение для ${nextField}:`);
-      return;
+    try {
+      const updatedBy = ctx.from?.id ? String(ctx.from.id) : undefined;
+      await SettingsService.set('manager', field, v.value, updatedBy);
+      await ctx.reply('✅ Сохранено.');
+    } catch (e) {
+      await ctx.reply('Не удалось сохранить. Попробуйте позже.');
     }
-    // Сохраняем
-    const updatedBy = ctx.from?.id ? String(ctx.from.id) : undefined;
-    const values: ManagerSettings = s.values || {};
-    for (const [k, val] of Object.entries(values)) {
-      await SettingsService.set('manager', k, val, updatedBy);
-    }
-    await ctx.reply('✅ Сохранено.');
-    try { await ctx.scene.leave(); } catch {}
-    // @ts-ignore
-    return ctx.scene.enter('admin_settings');
+    (ctx.wizard.state as any).editingField = undefined;
+    await showCurrent(ctx);
+    return;
   }
 };
 
